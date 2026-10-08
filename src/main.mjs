@@ -177,16 +177,24 @@ stage.addEventListener('pointerup', () => {
 });
 stage.addEventListener('pointercancel', () => { down = null; });
 let cursor = -1;
+// the cell nearest i that is part of the bilao (the centre of a shaped board can be a hole)
+const firstCell = (i) => { if (game.mask[i]) return i; let best = -1; for (let j = 0; j < game.cell.length; j++) if (game.mask[j] && (best < 0 || Math.abs(j - i) < Math.abs(best - i))) best = j; return best; };
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { if (mode === 'play') pause(); else if (mode === 'pause') resume(); return; }
   if (mode !== 'play' || !game) return;
   const W = game.W, H = game.H, d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -W, ArrowDown: W }[e.key];
   if (d !== undefined) {
     e.preventDefault();
-    if (cursor < 0) cursor = Math.floor(H / 2) * W + Math.floor(W / 2);
-    const to = cursor + d;
-    if (!adjacent(game, cursor, to)) return;
-    if (sel >= 0) { doSwap(sel, to); cursor = to; return; }
+    if (cursor < 0 || !game.mask[cursor]) cursor = firstCell(Math.floor(H / 2) * W + Math.floor(W / 2));
+    if (sel >= 0) {
+      const to = cursor + d;
+      if (busy || view.busy() || !adjacent(game, cursor, to) || !game.mask[to]) { sel = -1; view.select(cursor); return; } // an ignored move drops the pick-up
+      doSwap(sel, to); cursor = to; return;
+    }
+    // walk over holes to the next cell of the bilao in that direction
+    let to = cursor + d;
+    while (adjacent(game, to - d, to) && !game.mask[to]) to += d;
+    if (!adjacent(game, to - d, to) || !game.mask[to]) return;
     cursor = to; view.select(cursor);
   } else if (e.key === ' ' || e.key === 'Enter') {
     e.preventDefault(); if (cursor < 0) return;
@@ -205,7 +213,7 @@ $('restart').onclick = () => start(levelIx);
 $('again').onclick = () => start(levelIx);
 $('next').onclick = () => intro(levelIx + 1);
 $('pause-btn').onclick = pause;
-$('hint-btn').onclick = () => { if (mode === 'play' && game) view.showHint(hint(game)); };
+$('hint-btn').onclick = () => { if (mode === 'play' && game && !busy && !view.busy()) view.showHint(hint(game)); }; // a hint for the board you'll play, not one still moving
 for (const b of document.querySelectorAll('.to-levels')) b.onclick = levelsScreen;
 document.addEventListener('click', (e) => { if (e.target.closest('button')) A.event({ type: 'click' }); });
 for (const b of document.querySelectorAll('.menu')) b.onclick = titleScreen;

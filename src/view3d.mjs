@@ -69,11 +69,12 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
     const m = new THREE.Mesh(new RoundedBoxGeometry(CELL * 0.94, 0.03 + n * 0.03, CELL * 0.94, 2, 0.012), MATS.latik);
     m.userData.own = true; m.position.copy(cellPos(i, 0.03)); m.receiveShadow = true; boardG.add(m); latikM[i] = m;
   }
+  // the board's tiles share one geometry and two materials for the life of the view (no per-level leak)
+  const tileM = [new THREE.MeshStandardMaterial({ color: '#4a9440', roughness: 0.5 }), new THREE.MeshStandardMaterial({ color: '#3d8236', roughness: 0.5 })];
+  const tileGeo = new RoundedBoxGeometry(CELL - 0.06, 0.03, CELL - 0.06, 2, 0.01);
   function setGame(game) {
     g = game; W = g.W; H = g.H; clearBoard();
     const mat = new THREE.Mesh(new RoundedBoxGeometry(W * CELL + 0.25, 0.04, H * CELL + 0.25, 2, 0.02), MATS.leaf); mat.userData.own = true; mat.position.y = 0; mat.receiveShadow = true; boardG.add(mat);
-    const tileM = [new THREE.MeshStandardMaterial({ color: '#4a9440', roughness: 0.5 }), new THREE.MeshStandardMaterial({ color: '#3d8236', roughness: 0.5 })];
-    const tileGeo = new RoundedBoxGeometry(CELL - 0.06, 0.03, CELL - 0.06, 2, 0.01);
     for (let i = 0; i < W * H; i++) {
       if (!g.mask[i]) continue;
       const tile = new THREE.Mesh(tileGeo, tileM[((i % W) + ((i / W) | 0)) % 2]); tile.position.copy(cellPos(i, 0.02)); tile.receiveShadow = true; boardG.add(tile);
@@ -242,6 +243,7 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
     select(i) { selected = i; },
     showHint(pair) { hintPair = pair; hintTiles.forEach((m, q) => { m.visible = !!pair; if (pair) m.position.copy(cellPos(pair[q], 0.05)); }); },
     busy: () => tweens.length > 0,
+    hintShown: () => hintPair,
     dump: () => ({ kinds: meshes.map((m) => (m ? m.userData.kind : EMPTY)), specs: meshes.map((m) => (m ? m.userData.spec : NONE)) }),
     onCallout(fn) { callout = fn; },
     get level() { return post.level; },

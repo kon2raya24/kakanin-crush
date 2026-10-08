@@ -251,3 +251,22 @@ test('hint is a real move, or null on a still board', () => {
   const h = hint(g);
   assert.ok(h && swap(clone(g), ...h).ok);
 });
+
+test('a board no shuffle can fix ends the level instead of leaving you stuck', () => {
+  // a 2x2 bilao has no room for three in a row; two Sandoks side by side can still be swapped (a combo),
+  // and after that nothing can ever move
+  const g = setBoard(createGame(L({ w: 2, h: 2, kinds: ['puto', 'kutsinta', 'sapin', 'bibingka'], goals: [{ type: 'collect', kind: 'bibingka', n: 99 }] })), ['pk', 'bu']);
+  g.spec[0] = SANDOK_H; g.spec[1] = SANDOK_V;
+  const r = swap(g, 0, 1);
+  assert.equal(r.ok, true);
+  assert.ok(r.events.some((e) => e.type === 'shuffleFail'));
+  assert.equal(g.phase, 'lost');
+  assert.deepEqual(r.events.at(-1), { type: 'end', won: false, stars: 0, score: g.score });
+});
+
+test('a new special never replaces one already on the board', () => {
+  const g = setBoard(createGame(L()), ['ppppk', 'kbumb', 'bumkb', 'umkbs', 'mkbsu']);
+  for (let i = 0; i < 4; i++) g.spec[i] = SANDOK_V; // the whole run of four is already special
+  const gr = findGroups(g)[0];
+  assert.equal(_t.placeFor(g, gr, SANDOK_H, []), -1);
+});

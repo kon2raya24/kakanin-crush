@@ -17,7 +17,7 @@ const check = (ok, what) => { console.log(ok ? 'ok  ' : 'FAIL', what); if (!ok) 
 const mouse = async (type, x, y) => page.cdp('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
 // screen point of a cell, found by scanning with the view's own picking
 const cellPoint = (i) => E(`(() => { const c = document.querySelector('canvas'), r = c.getBoundingClientRect(); for (let y = r.top; y < r.bottom; y += 6) for (let x = r.left; x < r.right; x += 6) if (__kc.view.pick(x, y) === ${i}) return [x + 3, y + 3]; return null; })()`);
-const matches = () => E(`JSON.stringify(__kc.view.dump().kinds) === JSON.stringify(Array.from(__kc.game.cell).map((c, i) => __kc.game.mask[i] ? c : -1))`);
+const matches = () => E(`(() => { const d = __kc.view.dump().kinds, g = __kc.game; return JSON.stringify(Array.from({ length: g.cell.length }, (_, i) => d[i] ?? -1)) === JSON.stringify(Array.from(g.cell).map((c, i) => (g.mask[i] ? c : -1))); })()`);
 
 // 1. desktop title, then a level
 await page.viewport(1280, 760);
@@ -64,7 +64,7 @@ const pe = await cellPoint(e2), pf = await cellPoint(f2), m0 = await E('__kc.gam
 await mouse('mousePressed', ...pe); await mouse('mouseMoved', ...pf); await mouse('mouseReleased', ...pf);
 for (let k = 0; k < 6; k++) { await mouse('mousePressed', ...pe); await mouse('mouseMoved', ...pf); await mouse('mouseReleased', ...pf); }
 await until('!__kc.busy()', 90000);
-check((await E('__kc.game.moves')) >= m0 - 2, 'taps during a cascade are ignored, not queued');
+check((await E('__kc.game.moves')) === m0 - 1, `taps during a cascade are ignored, not queued (${m0 - (await E('__kc.game.moves'))} swaps)`);
 check(await matches(), 'still in sync after rapid input');
 // 5. a resize mid-cascade
 const [g2, h2] = JSON.parse(await E('JSON.stringify(__kc.moves()[0])'));
@@ -118,6 +118,39 @@ await until('window.__kc && __kc.mode === "play" && __kc.lola'); await until('__
 const ov2 = await overlap(); check(ov2 === 'clear' || ov2 === 'offscreen', `Lola doesn't cover the board on a phone (${ov2})`);
 await shot('lola-phone');
 await page.cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 760, deviceScaleFactor: 1, mobile: false });
+// 5f. keyboard: arrows move, Space picks up, an arrow swaps
+await page.load(`${BASE}?test=1&level=sr-01&seed=4&instant`);
+await until('window.__kc && __kc.mode === "play"');
+{
+  const [ka, kb] = JSON.parse(await E('JSON.stringify(__kc.moves()[0])')), W = await E('__kc.game.W'), k0 = await E('__kc.game.moves');
+  await page.key('ArrowRight', { keyCode: 39 }); await page.key('ArrowLeft', { keyCode: 37 }); // the cursor appears at the centre
+  let cur = await E('__kc.cursor');
+  for (let n = 0; n < 20 && cur % W !== ka % W; n++) { await page.key(cur % W < ka % W ? 'ArrowRight' : 'ArrowLeft', { keyCode: cur % W < ka % W ? 39 : 37 }); cur = await E('__kc.cursor'); }
+  for (let n = 0; n < 20 && Math.floor(cur / W) !== Math.floor(ka / W); n++) { await page.key(cur < ka ? 'ArrowDown' : 'ArrowUp', { keyCode: cur < ka ? 40 : 38 }); cur = await E('__kc.cursor'); }
+  await page.key(' ', { code: 'Space', keyCode: 32, text: ' ' });
+  const dir = kb === ka + 1 ? ['ArrowRight', 39] : ['ArrowDown', 40];
+  await page.key(dir[0], { keyCode: dir[1] }); await until('!__kc.busy()', 30000);
+  check(await E('__kc.game.moves') === k0 - 1, `a keyboard swap (cursor ${cur}, move ${ka}-${kb})`);
+}
+// 5g. the hint waits for the board to settle; the cursor never sits on a hole
+await page.load(`${BASE}?test=1&level=sr-06&seed=4`);
+await until('window.__kc && __kc.mode === "play"');
+{
+  const [ha, hb] = JSON.parse(await E('JSON.stringify(__kc.moves()[0])'));
+  await E(`__kc.swap(${ha}, ${hb}), 1`); await sleep(150);
+  await E('document.getElementById("hint-btn").click(), 1');
+  check(await E('__kc.busy() && __kc.view.hintShown() === null'), 'no hint while the board moves');
+  await until('!__kc.busy()', 90000);
+  let onHole = false;
+  for (const [key, code] of [['ArrowUp', 38], ['ArrowLeft', 37], ['ArrowUp', 38], ['ArrowLeft', 37], ['ArrowUp', 38], ['ArrowLeft', 37], ['ArrowUp', 38], ['ArrowUp', 38]]) { await page.key(key, { keyCode: code }); if (await E('__kc.cursor >= 0 && !__kc.game.mask[__kc.cursor]')) onHole = true; }
+  check(!onHole, 'the keyboard cursor never lands on a hole');
+}
+// 5h. restarting doesn't pile up GPU geometry
+{
+  const counts = [];
+  for (let r = 0; r < 4; r++) { await E('__kc.start(5), 1'); await sleep(800); counts.push(await E('__kc.view.renderer.info.memory.geometries')); }
+  check(counts[3] - counts[0] <= 1, `restarts don't pile up GPU geometry (${counts.join(' → ')})`);
+}
 // 6. the bot finishes a level and the result screen shows
 await page.load(`${BASE}?test=1&level=sr-01&bot&instant&seed=2`);
 check(await until('__kc.mode === "result"', 90000), 'the bot finishes level 1');
@@ -129,7 +162,7 @@ await page.load(`${BASE}?test=1&level=sr-06&seed=3`);
 await until('window.__kc && __kc.mode === "play"'); await sleep(1500); await shot('phone-play');
 // the widest row of cells on screen (a bilao-shaped level has holes at its corners)
 const span = JSON.parse(await E(`JSON.stringify((() => { let best = [0, 0]; for (let y = innerHeight * 0.3; y < innerHeight * 0.9; y += 8) { const cols = []; for (let x = 0; x < innerWidth; x += 3) if (__kc.view.pick(x, y) >= 0) cols.push(x); if (cols.length && cols.at(-1) - cols[0] > best[1] - best[0]) best = [cols[0], cols.at(-1)]; } return best; })())`));
-check(span[1] - span[0] >= 390 * 0.85 - 40, `the board spans the phone's width (${span[1] - span[0]}px of 390)`);
+check(span[1] - span[0] >= 390 * 0.85, `the board spans the phone's width (${span[1] - span[0]}px of 390)`);
 const signBottom = await E(`Math.max(...[...document.querySelectorAll('.sign')].map((s) => s.getBoundingClientRect().bottom))`);
 const boardTop = await E(`(() => { for (let y = 0; y < innerHeight; y += 3) if (__kc.view.pick(innerWidth / 2, y) >= 0) return y; return 9999; })()`);
 check(signBottom <= boardTop + 4, `the signboards sit above the board (${signBottom} ≤ ${boardTop})`);

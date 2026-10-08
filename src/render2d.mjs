@@ -49,7 +49,7 @@ export function createFlat(canvas) {
     pick(cx, cy) { if (!g) return -1; const { r, cell, ox, oy } = geom(); const x = Math.floor((cx - r.left - ox) / cell), y = Math.floor((cy - r.top - oy) / cell); if (x < 0 || y < 0 || x >= g.W || y >= g.H) return -1; const i = y * g.W + x; return g.mask[i] ? i : -1; },
     select(i) { selected = i; }, showHint(p) { hintPair = p; },
     update(dt) { busyT = Math.max(0, busyT - dt); draw(); },
-    resize, busy: () => busyT > 0,
+    resize, busy: () => busyT > 0, hintShown: () => hintPair,
     icons() { const out = {}; for (let k = 0; k <= 6; k++) { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = KCOLOR[k]; x.beginPath(); x.arc(32, 32, 26, 0, Math.PI * 2); x.fill(); out[k] = c.toDataURL(); } return out; },
     dump: () => ({ kinds: Array.from(g.cell), specs: Array.from(g.spec) }),
     onCallout(fn) { callout = fn; }, level: 0, setSpeed() {},

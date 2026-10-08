@@ -118,13 +118,14 @@ function shuffle(g) {
   for (let tries = 0; tries < 100; tries++) {
     for (let k = kinds.length - 1; k > 0; k--) { const r = Math.floor(rand(g) * (k + 1)); [kinds[k], kinds[r]] = [kinds[r], kinds[k]]; }
     slots.forEach((j, n) => { g.cell[j] = kinds[n]; });
-    if (!findGroups(g).length && findMoves(g).length) return;
+    if (!findGroups(g).length && findMoves(g).length) return true;
   }
   for (let tries = 0; tries < 100; tries++) {
     for (const j of slots) g.cell[j] = EMPTY;
     for (const j of slots) g.cell[j] = pickKind(g, j);
-    if (findMoves(g).length) return;
+    if (findMoves(g).length) return true;
   }
+  return false;
 }
 
 export const hashState = (g) => JSON.stringify([Array.from(g.cell), Array.from(g.spec), Array.from(g.latik), g.score, g.moves, g.rs, g.phase, g.goals.map((q) => q.got)]);
@@ -191,7 +192,7 @@ function settle(g, ev, prefer = [], first = null) {
       for (const gr of groups) {
         start.push(...gr.cells);
         const sp = specialFor(gr);
-        if (sp !== NONE) { const at = placeFor(g, gr, sp, prefer); made.push([at, sp === LAHAT ? BILAO : g.cell[at], sp]); }
+        if (sp !== NONE) { const at = placeFor(g, gr, sp, prefer); if (at >= 0) made.push([at, sp === LAHAT ? BILAO : g.cell[at], sp]); }
       }
     }
     const keep = new Set(made.map((m) => m[0]));
@@ -222,7 +223,10 @@ export function swap(g, a, b) {
 function after(g, ev) {
   if (goalsMet(g)) { ubos(g, ev); return; }
   if (g.moves <= 0) { g.phase = 'lost'; ev.push({ type: 'end', won: false, stars: 0, score: g.score }); return; }
-  if (!findMoves(g).length) { shuffle(g); ev.push({ type: 'shuffle', cell: Array.from(g.cell), spec: Array.from(g.spec) }); }
+  if (!findMoves(g).length) {
+    if (shuffle(g)) ev.push({ type: 'shuffle', cell: Array.from(g.cell), spec: Array.from(g.spec) });
+    else { g.phase = 'lost'; ev.push({ type: 'shuffleFail' }, { type: 'end', won: false, stars: 0, score: g.score }); } // nothing can be moved: the level ends, never a soft-lock
+  }
 }
 
 
@@ -244,7 +248,8 @@ function placeFor(g, gr, sp, prefer) {
   for (const c of prefer) if (gr.cells.has(c) && g.spec[c] === NONE) return c;
   const long = gr.runs.reduce((a, r) => (r.cells.length > a.cells.length ? r : a));
   for (const c of [long.cells[1], ...long.cells]) if (g.spec[c] === NONE) return c;
-  return long.cells[1];
+  for (const c of gr.cells) if (g.spec[c] === NONE) return c;
+  return -1; // every cell already holds a special: make none rather than replace one
 }
 
 function commonKind(g) {
@@ -314,4 +319,4 @@ function ubos(g, ev) {
   ev.push({ type: 'end', won: true, stars: g.won, score: g.score });
 }
 
-export const _t = { wouldRun, shuffle, pickKind, gravity, refill };
+export const _t = { wouldRun, shuffle, pickKind, gravity, refill, placeFor };
