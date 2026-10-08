@@ -154,6 +154,8 @@ await until('window.__kc && __kc.mode === "play"');
 // 6. the bot finishes a level and the result screen shows
 await page.load(`${BASE}?test=1&level=sr-01&bot&instant&seed=2`);
 check(await until('__kc.mode === "result"', 90000), 'the bot finishes level 1');
+await sleep(2200);
+check(await E('document.querySelectorAll("#result-stars .star.on").length === __kc.game.won'), `the stars earned land on the results (${await E('document.querySelectorAll("#result-stars .star.on").length')} of ${await E('__kc.game.won')})`);
 await shot('result');
 // 7. phone portrait: the bilao fills the width, the HUD strip above it
 await page.cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });

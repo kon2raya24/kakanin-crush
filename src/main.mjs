@@ -141,7 +141,9 @@ function finish(end) {
     if (game !== g0) return;
     mode = 'result';
     $('result-title').textContent = end.won ? 'Ubos ang paninda!' : 'May natira pa…';
-    $('result-stars').textContent = end.won ? '★'.repeat(end.stars) + '☆'.repeat(3 - end.stars) : '';
+    // the stars land one by one, each with its note
+    const box = $('result-stars'); box.replaceChildren();
+    if (end.won) for (let n = 0; n < 3; n++) { const s = document.createElement('span'); s.textContent = '★'; s.className = 'star'; box.append(s); if (n < end.stars) setTimeout(() => { if (mode === 'result') { s.classList.add('on'); A.event({ type: 'star', n }); } }, 450 + n * 420); }
     $('result-score').textContent = `${end.score.toLocaleString('en-PH')} puntos · best ${(data.best[lv.id] || end.score).toLocaleString('en-PH')}`;
     $('result-lola').textContent = `Lola: "${pick(end.won ? LOLA.win : LOLA.lose)}"`;
     $('next').hidden = !end.won || levelIx >= LEVELS.length - 1;

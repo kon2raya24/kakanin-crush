@@ -27,6 +27,8 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
 
   const boardG = new THREE.Group(); scene.add(boardG);
   let g = null, W = 0, H = 0, meshes = [], latikM = [], selected = -1, hintPair = null, callout = () => {}, t = 0;
+  let kickT = 0, kickAmp = 0, flash = 0; // a camera kick and a white flash for the big moments (never with reduced motion)
+  const kick = (amp) => { if (reduced()) return; kickAmp = Math.max(kickAmp * (kickT / 0.35), amp); kickT = 0.35; };
   const tweens = [];
   const k = () => (reduced() ? 0.5 : 1) / speed;
   const tween = (dur, fn) => new Promise((res) => { if (dur <= 0) { fn(1); res(); return; } tweens.push({ t: 0, dur, fn, res }); });
@@ -100,9 +102,11 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
         if (e.type === 'bounce') await tween(0.16 * k(), (u) => { const s = ease.out(u); if (A) A.position.lerpVectors(pb, pa, s); if (B) B.position.lerpVectors(pa, pb, s); });
         else [meshes[e.a], meshes[e.b]] = [meshes[e.b], meshes[e.a]];
       } else if (e.type === 'step') {
-        if (CALLOUTS[Math.min(e.step, 5)]) callout(CALLOUTS[Math.min(e.step, 5)], e.step);
-        if (ubos) for (const [i, sp] of e.fired) { onBeat({ type: 'fire', i, spec: sp }); await Promise.race([beam(i, sp), tween(0.09 * k(), () => {})]); }
-        else { for (const [i, sp] of e.fired) onBeat({ type: 'fire', i, spec: sp }); await Promise.all(e.fired.map(([i, sp]) => beam(i, sp))); }
+        if (CALLOUTS[Math.min(e.step, 5)]) callout(`x${e.step} ${CALLOUTS[Math.min(e.step, 5)]}`, e.step);
+        const boom = (sp) => { if (sp === KALDERO) kick(0.18); else if (sp === LAHAT) { kick(0.32); if (!reduced()) flash = 0.55; } else kick(0.07); };
+        if (ubos) for (const [i, sp] of e.fired) { onBeat({ type: 'fire', i, spec: sp }); boom(sp); await Promise.race([beam(i, sp), tween(0.09 * k(), () => {})]); }
+        else { for (const [i, sp] of e.fired) { onBeat({ type: 'fire', i, spec: sp }); boom(sp); } await Promise.all(e.fired.map(([i, sp]) => beam(i, sp))); }
+        if (e.step >= 4) kick(0.08);
         onBeat({ type: 'pop', step: e.step, cleared: e.cleared, latik: e.latik, made: e.made });
         const gone = e.cleared.map(([i, kind]) => { const m = meshes[i]; meshes[i] = null; burst(cellPos(i), kind); return m; }).filter(Boolean);
         await tween(0.2 * k(), (u) => { for (const m of gone) m.scale.setScalar(u < 0.3 ? 1 + u : Math.max(0.001, 1.3 * (1 - (u - 0.3) / 0.7))); });
@@ -128,7 +132,7 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
         onBeat(e);
         await tween(0.25 * k(), (u) => { for (const m of meshes) if (m) m.scale.setScalar(Math.max(0.01, 1 - u)); });
         for (let i = 0; i < W * H; i++) place(i);
-      } else onBeat(e); // combo, ubos, end
+      } else { if (e.type === 'combo') { kick(0.3); if (!reduced()) flash = 0.4; } onBeat(e); } // combo, ubos, end
     }
     sync();
   }
@@ -144,7 +148,7 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
   }
 
   // ---------- camera: frame the bilao for the screen, the street above ----------
-  const target = new THREE.Vector3(0, 0, -0.8), dir = new THREE.Vector3(0, 8.6, 10.6).normalize();
+  const target = new THREE.Vector3(0, 0, -0.8), dir = new THREE.Vector3(0, 8.6, 10.6).normalize(), camRest = new THREE.Vector3();
   function fit() {
     const aspect = camera.aspect, v = THREE.MathUtils.degToRad(camera.fov), h = 2 * Math.atan(Math.tan(v / 2) * aspect);
     const halfW = (Math.max(W, 7) * CELL) / 2 + 0.9, halfH = (Math.max(H, 7) * CELL) / 2 + 1.2;
@@ -153,7 +157,7 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
     const portrait = aspect < 0.9;
     target.set(0, 0, portrait ? -1.6 : -0.8);
     camera.position.copy(target).addScaledVector(dir, dist * (portrait ? 1.02 : 1));
-    camera.lookAt(target);
+    camera.lookAt(target); camRest.copy(camera.position);
   }
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return;
@@ -196,8 +200,10 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
       crumbs.setMatrixAt(n, dummy.matrix); crumbs.setColorAt(n, col.set(p.c)); n++;
     }
     crumbs.count = n; crumbs.instanceMatrix.needsUpdate = true; if (crumbs.instanceColor) crumbs.instanceColor.needsUpdate = true;
+    if (kickT > 0) { kickT = Math.max(0, kickT - dt); const a = kickAmp * (kickT / 0.35); camera.position.set(camRest.x + (Math.random() - 0.5) * a, camRest.y + (Math.random() - 0.5) * a * 0.6, camRest.z + (Math.random() - 0.5) * a * 0.4); if (!kickT) camera.position.copy(camRest); }
+    flash = Math.max(0, flash - dt * 2);
     stall.update(t);
-    post.render(dt);
+    post.render(dt, { flash });
   }
 
   // ---------- icons for the HUD: each kakanin rendered once ----------

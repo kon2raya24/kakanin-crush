@@ -141,6 +141,7 @@ export function createAudio({ base = 'assets/sfx/' } = {}) {
         case 'combo': play('kaldero', { gain: 0.6, rate: 0.8 }); play('sandok', { gain: 0.5, at: 0.05 }); tone(110, 0.6, 'sine', 0.18, 0, 0.4); break;
         case 'shuffle': play('shuffle', { gain: 0.6 }); break;
         case 'goal': play('coin', { gain: 0.3, rate: 1.1 }); break;
+        case 'star': marimba(deg(4 + b.n * 2, 79), 0, 0.08, 0.7); play('glass', { gain: 0.4, rate: 1 + b.n * 0.15, vary: 0 }); play('coin', { gain: 0.35, rate: 1 + b.n * 0.1, at: 0.05 }); break;
         case 'ubos': for (let k = 0; k < 3; k++) play('handle', { gain: 0.45, at: k * 0.12 }); play('coin', { gain: 0.5, at: 0.3 }); for (let k = 0; k < 6; k++) marimba(deg(k, 79), 0.1 + k * 0.06, 0.05); break;
         case 'end':
           if (b.won) { play('win', { gain: 0.7, vary: 0 }); if (b.stars === 3) play('star3', { gain: 0.6, at: 1.0, vary: 0 }); }
