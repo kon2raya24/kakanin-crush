@@ -110,7 +110,7 @@ kakanin-crush/
   - `_t.wouldRun(g,i,k)` for tests
 - A **level** is `{ id, name, w, h, mask?: string[] ('#' cell, '.' hole), latik?: string[] ('.' or '1'-'9'), kinds: string[], moves, goals: [{type:'collect',kind,n}|{type:'latik'}|{type:'score',n}], stars: [s1,s2,s3], seed, tip? }`.
 
-- [ ] **Step 1: Write the failing tests** in `test/game.test.mjs`:
+- [x] **Step 1: Write the failing tests** in `test/game.test.mjs`:
 
 ```js
 // Rules tests. Boards are written as strings: p k s b u m are the six kakanin, * a Bilao ng Lahat, . a hole.
@@ -190,12 +190,12 @@ test('clone is independent', () => {
 });
 ```
 
-- [ ] **Step 2: Run to see it fail**
+- [x] **Step 2: Run to see it fail**
 
 Run: `cd /private/var/www/others/kakanin-crush && node --test test/game.test.mjs`
 Expected: FAIL: `Cannot find module '../src/game.mjs'`.
 
-- [ ] **Step 3: Write `src/rng.mjs`**
+- [x] **Step 3: Write `src/rng.mjs`**
 
 ```js
 // Seeded PRNG (mulberry32) over a plain number, so a game state can be cloned, hashed and replayed.
@@ -208,7 +208,7 @@ export function next(s) {
 }
 ```
 
-- [ ] **Step 4: Write `src/game.mjs` (board part)**
+- [x] **Step 4: Write `src/game.mjs` (board part)**
 
 ```js
 // The rules of Kakanin Crush: a pure, seeded match-3. createGame lays a level's board; swap (Task 2)
@@ -345,7 +345,7 @@ export const hashState = (g) => JSON.stringify([Array.from(g.cell), Array.from(g
 export const _t = { wouldRun, shuffle, pickKind };
 ```
 
-- [ ] **Step 5: Add `.scratch/` and `.vercel` to `.gitignore`**
+- [x] **Step 5: Add `.scratch/` and `.vercel` to `.gitignore`**
 
 ```
 .superpowers/
@@ -353,12 +353,12 @@ export const _t = { wouldRun, shuffle, pickKind };
 .vercel
 ```
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `node --test test/game.test.mjs`
 Expected: PASS, 7 tests.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add .gitignore src/rng.mjs src/game.mjs test/game.test.mjs
@@ -387,7 +387,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
   - `{type:'step', step, cleared:[[i,kind,spec]], fired:[[i,spec]], latik:[[i,left]], made:[[i,kind,spec]], falls:[[from,to]], spawns:[[i,kind,n]], points}`: one cascade step. In `spawns`, `n` is 1 for the lowest new piece in its column.
   - `{type:'end', won, stars, score}`
 
-- [ ] **Step 1: Append the failing tests**
+- [x] **Step 1: Append the failing tests**
 
 ```js
 import { swap, goalsMet, POINTS } from '../src/game.mjs';
@@ -459,12 +459,12 @@ test('after any move the board is full and still', () => {
 
 **Why those falls** (W=3, H=4; cell 4 is a hole; row 2 was cleared). Column 0 holds cells 0,3,6,9 = k, m, —, b: b stays, m 3→6, k 0→3. Column 1 holds 1,7,10 = b, —, u: b 1→7, falling past the hole. Column 2 holds 2,5,8,11 = u, s, —, s: s 5→8, u 2→5.
 
-- [ ] **Step 2: Run to see the new tests fail**
+- [x] **Step 2: Run to see the new tests fail**
 
 Run: `node --test test/game.test.mjs`
 Expected: FAIL: `swap is not a function` (or not exported).
 
-- [ ] **Step 3: Append the move code to `src/game.mjs`**
+- [x] **Step 3: Append the move code to `src/game.mjs`**
 
 ```js
 // ---------- a move ----------
@@ -580,12 +580,12 @@ function comboCells(g, a, b) { return [a, b]; }
 function ubos(g, ev) { g.won = g.score >= g.stars[2] ? 3 : g.score >= g.stars[1] ? 2 : 1; g.phase = 'won'; ev.push({ type: 'end', won: true, stars: g.won, score: g.score }); }
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `node --test test/game.test.mjs`
 Expected: PASS, 13 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/game.mjs test/game.test.mjs
@@ -617,7 +617,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
     - LAHAT+special of kind k: every k becomes that special (SANDOK orientation by `rand`), then all fire
     - LAHAT+LAHAT: the whole board
 
-- [ ] **Step 1: Append the failing tests**
+- [x] **Step 1: Append the failing tests**
 
 ```js
 import { SANDOK_H, SANDOK_V, KALDERO } from '../src/game.mjs';
@@ -697,12 +697,12 @@ test('combos: Sandok+Sandok is a cross, Kaldero+Kaldero 5x5, Bilao+Bilao the who
 
 `triggerSpecial` finds a real move that sets a given special off, so tests never hand-place a trigger. The hand-built boards above are checked by running them (see the plan's verification note).
 
-- [ ] **Step 2: Run to see them fail**
+- [x] **Step 2: Run to see them fail**
 
 Run: `node --test test/game.test.mjs`
 Expected: FAIL. `made` is `[]` (`specialFor` still returns NONE).
 
-- [ ] **Step 3: Replace the temporary functions in `src/game.mjs`**
+- [x] **Step 3: Replace the temporary functions in `src/game.mjs`**
 
 ```js
 // ---------- specials ----------
@@ -769,13 +769,13 @@ function comboCells(g, a, b, ev) {
 }
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `node --test test/game.test.mjs`
 Expected: PASS, 18 tests. If a hand-built board fails, print it with
 `console.log([...g.cell].join(''))` and fix the **board**, not the rules. The rules above match the spec.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/game.mjs test/game.test.mjs
@@ -798,7 +798,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
   - `{type:'shuffle', cell:number[], spec:number[]}`
   - `hint(g)` (already exported in Task 1)
 
-- [ ] **Step 1: Append the failing tests**
+- [x] **Step 1: Append the failing tests**
 
 ```js
 import { hint } from '../src/game.mjs';
@@ -843,12 +843,12 @@ test('hint is a real move, or null on a still board', () => {
 });
 ```
 
-- [ ] **Step 2: Run to see them fail**
+- [x] **Step 2: Run to see them fail**
 
 Run: `node --test test/game.test.mjs`
 Expected: FAIL in the Ubos-Benta test (no `ubosMake` event).
 
-- [ ] **Step 3: Replace the temporary `ubos` in `src/game.mjs`**
+- [x] **Step 3: Replace the temporary `ubos` in `src/game.mjs`**
 
 ```js
 // Ubos-Benta! Every move left turns a plain kakanin into a Sandok, and they all go off.
@@ -879,12 +879,12 @@ function ubos(g, ev) {
 
 (The rounds loop sets off specials a cascade creates during Ubos-Benta too, so the finished board holds none.)
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `node --test test/game.test.mjs`
 Expected: PASS, 22 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/game.mjs test/game.test.mjs
@@ -907,7 +907,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
   - `LEVELS: Level[15]`, with ids `'sr-01'` … `'sr-15'`
   - `validateLevel(level) → string[]`: the problems found, an empty list when the level is fine
 
-- [ ] **Step 1: Write the failing test** `test/levels.test.mjs`
+- [x] **Step 1: Write the failing test** `test/levels.test.mjs`
 
 ```js
 import test from 'node:test';
@@ -940,12 +940,12 @@ test('validateLevel catches broken data', () => {
 });
 ```
 
-- [ ] **Step 2: Run to see it fail**
+- [x] **Step 2: Run to see it fail**
 
 Run: `node --test test/levels.test.mjs`
 Expected: FAIL, module not found.
 
-- [ ] **Step 3: Write `src/levels.mjs`**
+- [x] **Step 3: Write `src/levels.mjs`**
 
 The star thresholds and move counts below are starting values; Task 6 calibrates them with the bot and edits this file.
 
@@ -1022,12 +1022,12 @@ export function validateLevel(lv) {
 }
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `node --test test/levels.test.mjs`
 Expected: PASS, 3 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/levels.mjs test/levels.test.mjs
@@ -1051,7 +1051,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
   - `playLevel(level, seed) → { won: boolean, stars: 0..3, score, movesLeft }`
 - The bot clones the state, so it sees the real refills. That makes it a little better than a person. It's documented as a known bias, and the targets account for it.
 
-- [ ] **Step 1: Write the failing test** `test/balance.test.mjs`
+- [x] **Step 1: Write the failing test** `test/balance.test.mjs`
 
 ```js
 // Balance floors from the bot. It sees real refills, so it plays a little better than a person;
@@ -1075,12 +1075,12 @@ for (const [k, lv] of LEVELS.entries()) {
 }
 ```
 
-- [ ] **Step 2: Run to see it fail**
+- [x] **Step 2: Run to see it fail**
 
 Run: `node --test test/balance.test.mjs`
 Expected: FAIL, `../src/bot.mjs` not found.
 
-- [ ] **Step 3: Write `src/bot.mjs`**
+- [x] **Step 3: Write `src/bot.mjs`**
 
 ```js
 // A decent player for the balance tests and the title demo: it tries every legal swap on a copy of the
@@ -1121,7 +1121,7 @@ export function playLevel(level, seed = level.seed) {
 }
 ```
 
-- [ ] **Step 4: Write `tools/balance.mjs`**
+- [x] **Step 4: Write `tools/balance.mjs`**
 
 ```js
 // node tools/balance.mjs [runs=40] [levelId]: per level, the bot's win rate, star spread and score
@@ -1141,7 +1141,7 @@ for (const lv of LEVELS) {
 }
 ```
 
-- [ ] **Step 5: Calibrate the levels**
+- [x] **Step 5: Calibrate the levels**
 
 Run: `node tools/balance.mjs 40`
 
@@ -1154,12 +1154,12 @@ Then set each level's `stars` to the suggested `[1, p50, p80]` the tool prints, 
 
 Record the final table in the commit message.
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `node --test test/`
 Expected: PASS: 22 game + 3 levels + 15 balance. The balance file takes under 60 s; if it's slower, set `RUNS = 8`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/bot.mjs tools/balance.mjs test/balance.test.mjs src/levels.mjs
@@ -1189,7 +1189,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
   - `totalStars(data) → number`
 - `Save = { v: 1, stars: { [levelId]: 0..3 }, best: { [levelId]: number }, muted: boolean, calm: boolean, hints: string[] }`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 import test from 'node:test';
@@ -1225,12 +1225,12 @@ test('record keeps the best, unlocks the next level, and saving survives a broke
 });
 ```
 
-- [ ] **Step 2: Run to see it fail**
+- [x] **Step 2: Run to see it fail**
 
 Run: `node --test test/progress.test.mjs`
 Expected: FAIL, module not found.
 
-- [ ] **Step 3: Write `src/progress.mjs`**
+- [x] **Step 3: Write `src/progress.mjs`**
 
 ```js
 // Saves: stars and best scores per level, sound and motion settings, hints already shown. Everything in
@@ -1260,12 +1260,12 @@ export const isUnlocked = (data, index) => index === 0 || (data.stars[LEVELS[ind
 export const totalStars = (data) => Object.values(data.stars).reduce((a, b) => a + b, 0);
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `node --test test/progress.test.mjs`
 Expected: PASS, 2 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/progress.mjs test/progress.test.mjs
@@ -1292,7 +1292,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
     - It adds the lights, sky, road, houses, stall, banderitas and bulbs, side trays, counter, bilao and table, plus the props (async).
     - The board's cells sit on y=0 around the origin; the bilao top is at y=0.
 
-- [ ] **Step 1: Copy the reused files**
+- [x] **Step 1: Copy the reused files**
 
 ```bash
 mkdir -p src/vendor assets/env/sky assets/env/tex assets/env/props tools
@@ -1308,7 +1308,7 @@ du -sh assets/env
 
 Expected: about 2.0M. `tex.mjs` and `post.mjs` import `./vendor/...`, which matches `src/vendor/`.
 
-- [ ] **Step 2: Write the failing syntax test** `test/syntax.test.mjs`
+- [x] **Step 2: Write the failing syntax test** `test/syntax.test.mjs`
 
 ```js
 // Browser-only modules can't run under node, but they must at least parse.
@@ -1331,7 +1331,7 @@ test('every source module parses', () => {
 
 Run: `node --test test/syntax.test.mjs`. Expected: FAIL, `kakanin3d.mjs exists`.
 
-- [ ] **Step 3: Write `src/kakanin3d.mjs`**
+- [x] **Step 3: Write `src/kakanin3d.mjs`**
 
 Port lines 27–100 of the prototype (`.superpowers/brainstorm/98650-1791430228/content/k3d9.js`): the textures, the `M` materials and the six `make*` functions. Change the imports to `./vendor/three.module.min.js`, `./vendor/three-extra.min.js` and `./tex.mjs`. Rename `M` to `MATS`.
 
@@ -1474,7 +1474,7 @@ export function makePiece(kind, spec = 0) {
 export const lathe2 = lathe; // for the stall's trays and bilao
 ```
 
-- [ ] **Step 4: Write `src/stall3d.mjs`**
+- [x] **Step 4: Write `src/stall3d.mjs`**
 
 Port lines 102–106 (the table and bilao) and lines 122–178 (the street) of the prototype. Make these changes:
 - Size everything for a 9×9 board: bilao radius 6.2, table 18×13, posts at x=±8.8, tolda 18 wide, side trays at x=±8.4.
@@ -1564,12 +1564,12 @@ export function buildStall(scene, renderer, { base = 'assets/env/' } = {}) {
 }
 ```
 
-- [ ] **Step 5: Run the syntax test**
+- [x] **Step 5: Run the syntax test**
 
 Run: `node --test test/syntax.test.mjs`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/vendor src/tex.mjs src/post.mjs src/kakanin3d.mjs src/stall3d.mjs assets tools/cdp.mjs test/syntax.test.mjs
@@ -1607,7 +1607,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
   - `level` (the post quality level)
 - The 2D fallback (Task 11) implements the same interface.
 
-- [ ] **Step 1: Write `src/view3d.mjs`**
+- [x] **Step 1: Write `src/view3d.mjs`**
 
 ```js
 // The 3D bilao for Kakanin Crush. It draws the rules' state (game.mjs) and plays their events as
@@ -1834,12 +1834,12 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
 }
 ```
 
-- [ ] **Step 2: Run the syntax test**
+- [x] **Step 2: Run the syntax test**
 
 Run: `node --test test/syntax.test.mjs`
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/view3d.mjs
@@ -1863,7 +1863,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
   - `start()` must be called from a user gesture.
   - `event` takes the rules' events, plus these view-only ones: `{type:'select'}`, `{type:'tsk'}`, `{type:'goal'}`.
 
-- [ ] **Step 1: Write `src/audio.mjs`**
+- [x] **Step 1: Write `src/audio.mjs`**
 
 ```js
 // Synthesized sound: a soft crunch per kakanin (pitched by kind) that climbs a step with every cascade,
@@ -1945,12 +1945,12 @@ export function createAudio() {
 const kind0 = (e) => (e.cleared[0] ? e.cleared[0][1] : 0);
 ```
 
-- [ ] **Step 2: Run the syntax test**
+- [x] **Step 2: Run the syntax test**
 
 Run: `node --test test/syntax.test.mjs`
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/audio.mjs
@@ -1979,7 +1979,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
   - **URL switches:** `?test=1` (no storage, exposes `window.__kc`), `?level=sr-NN`, `?bot` (autoplay), `?fast=N` (animation speed), `?seed=N`, `?gfx=0|1|2`, `?flat=1`.
   - **`window.__kc`** (test mode only): `{ game, view, mode, start(levelIndex), swap(a,b), moves(), LEVELS, busy() }`.
 
-- [ ] **Step 1: Write `src/render2d.mjs`** (the fallback, with the same interface as the view)
+- [x] **Step 1: Write `src/render2d.mjs`** (the fallback, with the same interface as the view)
 
 ```js
 // The 2D fallback (no WebGL, or ?flat=1): the same board as flat glossy discs on a woven tray. It has the
@@ -2030,7 +2030,7 @@ export function createFlat(canvas) {
 }
 ```
 
-- [ ] **Step 2: Write `index.html`**
+- [x] **Step 2: Write `index.html`**
 
 ```html
 <!doctype html>
@@ -2187,7 +2187,7 @@ h2 { margin: 0; font: italic 900 clamp(30px, 7vw, 48px)/1 "Barlow Condensed", sa
 </html>
 ```
 
-- [ ] **Step 3: Write `src/main.mjs`**
+- [x] **Step 3: Write `src/main.mjs`**
 
 ```js
 // The page: screens, the HUD, input (drag, tap-tap, keys), the loop, sound and saves. The rules live in
@@ -2419,13 +2419,13 @@ requestAnimationFrame(frame);
 if (TEST) window.__kc = { get game() { return game; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), LEVELS, busy: () => busy || view.busy() };
 ```
 
-- [ ] **Step 4: Copy `vercel.json`**
+- [x] **Step 4: Copy `vercel.json`**
 
 ```bash
 cp ../hollow-blocks/vercel.json .
 ```
 
-- [ ] **Step 5: Smoke-test in the browser**
+- [x] **Step 5: Smoke-test in the browser**
 
 ```bash
 python3 -m http.server 5520 --bind 127.0.0.1 >/dev/null 2>&1 &
@@ -2449,7 +2449,7 @@ await page.close().catch(() => {});
 Run: `node .scratch/smoke.mjs`
 Expected: `errs: []`, a `score > 0`, `moves` below 18 (or mode `result`). Look at `.scratch/smoke.png`: the stall and street, the bilao with 3D kakanin, the HUD chips and signboards. Fix anything broken before committing.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add index.html src/main.mjs src/render2d.mjs vercel.json
@@ -2469,7 +2469,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 - Consumes: `window.__kc` (Task 11), and the `view.dump()` and `pick()` members.
 - Run: `node tools/check.mjs [port|url]`. Every check prints `ok`/`FAIL`, and screenshots go to `.scratch/check-*.png`. The script exits non-zero if any check fails.
 
-- [ ] **Step 1: Write `tools/check.mjs`**
+- [x] **Step 1: Write `tools/check.mjs`**
 
 ```js
 // node tools/check.mjs [port | url]: Kakanin Crush in headless Chrome — desktop and phone, drag and tap,
@@ -2552,7 +2552,7 @@ console.log(fails.length ? `\n${fails.length} FAILED` : '\nall ok');
 process.exit(fails.length ? 1 : 0);
 ```
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 Run: `python3 -m http.server 5520 --bind 127.0.0.1 >/dev/null 2>&1 & sleep 1; node tools/check.mjs`
 Expected: every line `ok`, then `all ok`.
@@ -2561,7 +2561,7 @@ Expected: every line `ok`, then `all ok`.
 
 **If the signboards overlap the board:** in `index.html`, increase the portrait `.signs` `top` offset, or lower the portrait camera `target.z` (`-1.6`) toward `-2.2`, which raises the board on screen. Then re-run.
 
-- [ ] **Step 3: Look at every screenshot**
+- [x] **Step 3: Look at every screenshot**
 
 Open `.scratch/check-title.png`, `check-desktop-play.png`, `check-result.png`, `check-phone-play.png` and `check-flat.png`, and confirm each:
 - The stall scene matches the approved prototype's look.
@@ -2571,12 +2571,12 @@ Open `.scratch/check-title.png`, `check-desktop-play.png`, `check-result.png`, `
 
 Fix anything ugly before committing.
 
-- [ ] **Step 4: Run all unit tests**
+- [x] **Step 4: Run all unit tests**
 
 Run: `node --test test/`
 Expected: all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/check.mjs
@@ -2592,7 +2592,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Create: `manifest.webmanifest`, `sw.js`, `icons/*`, `og.jpg`, `README.md`, `LICENSE`, `test/pwa.test.mjs`
 
-- [ ] **Step 1: Write the failing test** `test/pwa.test.mjs`
+- [x] **Step 1: Write the failing test** `test/pwa.test.mjs`
 
 ```js
 import test from 'node:test';
@@ -2612,7 +2612,7 @@ test('every module, vendor file, env asset and icon is precached, and every prec
 });
 ```
 
-- [ ] **Step 2: Write `sw.js`**
+- [x] **Step 2: Write `sw.js`**
 
 ```js
 // Offline play: the game's files are cached on install and served cache-first; the webfont is cached
@@ -2644,7 +2644,7 @@ self.addEventListener('fetch', (e) => {
 });
 ```
 
-- [ ] **Step 3: Write `manifest.webmanifest`**
+- [x] **Step 3: Write `manifest.webmanifest`**
 
 ```json
 {
@@ -2665,7 +2665,7 @@ self.addEventListener('fetch', (e) => {
 }
 ```
 
-- [ ] **Step 4: Make the icons and share image from the game itself**
+- [x] **Step 4: Make the icons and share image from the game itself**
 
 Write `.scratch/art.mjs`. It renders a sapin-sapin, puto and ube on a bilao for the icon, and captures gameplay for `og.jpg`:
 
@@ -2693,7 +2693,7 @@ mkdir -p icons && node .scratch/art.mjs && sips -z 192 192 icons/icon-512.png --
 
 Look at `icons/icon-512.png` and `og.jpg`. The icon must show kakanin clearly; adjust the clip rectangle until it does.
 
-- [ ] **Step 5: Write `README.md` and `LICENSE`**
+- [x] **Step 5: Write `README.md` and `LICENSE`**
 
 ```bash
 cp ../hollow-blocks/LICENSE .
@@ -2734,12 +2734,12 @@ Made by [Lemmuel Turaya](https://kon2raya.netlify.app). The 3D street uses CC0 s
 MIT
 ```
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `node --test test/`
 Expected: all pass, including `pwa.test.mjs`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add manifest.webmanifest sw.js icons og.jpg README.md LICENSE test/pwa.test.mjs
@@ -2756,7 +2756,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 - Modify: `../tambayan/games.json`, add `../tambayan/thumbs/kakanin-crush.webp`
 - Create: the memory note update at `/Users/kon2raya/.claude/projects/-private-var-www-others/memory/kakanin-crush-game.md`
 
-- [ ] **Step 1: GitHub repo and Pages**
+- [x] **Step 1: GitHub repo and Pages**
 
 ```bash
 gh repo create kon2raya24/kakanin-crush --public --description "Kakanin Crush: match-3, Pinoy style, in 3D. Ubos-Benta!" --homepage "https://kakanin-crush.vercel.app"
@@ -2767,7 +2767,7 @@ gh api -X POST repos/kon2raya24/kakanin-crush/pages -f "source[branch]=main" -f 
 
 If GitHub is unreachable (curl exit 35 has happened on this network), retry later and continue with Vercel.
 
-- [ ] **Step 2: Vercel**
+- [x] **Step 2: Vercel**
 
 ```bash
 npx --yes vercel@latest deploy --prod --yes
@@ -2775,7 +2775,7 @@ npx --yes vercel@latest deploy --prod --yes
 
 Expected: `Aliased https://kakanin-crush.vercel.app`. If the name is taken, add a free name with `npx vercel domains add <name>.vercel.app kakanin-crush` (a plain alias is SSO-protected) and use it everywhere below.
 
-- [ ] **Step 3: Check live**
+- [x] **Step 3: Check live**
 
 ```bash
 node tools/check.mjs https://kakanin-crush.vercel.app/
@@ -2784,7 +2784,7 @@ curl -s -o /dev/null -w "%{http_code}\n" https://kakanin-crush.vercel.app/assets
 
 Expected: `all ok` and `200`. Headless Chrome on this network can be slow to reach Vercel. If only timing checks fail, re-run once and compare with the local run before calling it a site problem.
 
-- [ ] **Step 4: List it in Tambayan**
+- [x] **Step 4: List it in Tambayan**
 
 Make the thumbnail from `.scratch/check-desktop-play.png`:
 
@@ -2823,7 +2823,7 @@ curl -s https://tambayan-arcade.vercel.app/games.json | grep -c kakanin-crush
 
 Expected: tests pass, and `1`.
 
-- [ ] **Step 5: Update the memory note** `kakanin-crush-game.md`. Add:
+- [x] **Step 5: Update the memory note** `kakanin-crush-game.md`. Add:
   - the live URLs
   - test hooks (`?test=1&level&bot&fast&seed&gfx&flat`, `window.__kc`)
   - the check commands
@@ -2831,7 +2831,7 @@ Expected: tests pass, and `1`.
   - the final balance table summary
   - "phase 2 next: Mixamo Lola (needs the user's go-ahead)"
 
-- [ ] **Step 6: Tick every checkbox in this plan, then commit and push**
+- [x] **Step 6: Tick every checkbox in this plan, then commit and push**
 
 ```bash
 git add docs/superpowers/plans/2026-10-08-kakanin-crush-phase1.md && git commit -m "Phase 1 plan: done
