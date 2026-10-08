@@ -288,6 +288,7 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
   }
 
   return {
+    setTheme(id) { post.setStage(stall.setTheme(id)); },
     setGame, play, pick, update, resize, icons, scene, screenBox,
     boardBox: () => screenBox(boardG),
     select(i) { selected = i; },

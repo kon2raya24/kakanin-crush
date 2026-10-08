@@ -56,6 +56,6 @@ export function createFlat(canvas) {
     resize, busy: () => busyT > 0, hintShown: () => hintPair,
     icons() { const out = {}; for (let k = 0; k <= 10; k++) { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = KCOLOR[k]; x.beginPath(); x.arc(32, 32, 26, 0, Math.PI * 2); x.fill(); out[k] = c.toDataURL(); } return out; },
     dump: () => ({ kinds: Array.from(g.cell), specs: Array.from(g.spec), wraps: Array.from(g.wrap) }),
-    onCallout(fn) { callout = fn; }, level: 0, setSpeed() {},
+    onCallout(fn) { callout = fn; }, level: 0, setSpeed() {}, setTheme() {},
   };
 }

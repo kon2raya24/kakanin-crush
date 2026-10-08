@@ -118,7 +118,7 @@ function start(k = levelIx) {
   levelIx = k; A.start(); A.music(true);
   const lv = LEVELS[k], seed = Q.get('seed') ? Number(Q.get('seed')) : (lv.seed * 7919 + Math.floor(Math.random() * 1e6)) >>> 0;
   game = createGame(lv, seed); sel = -1; cursor = -1; idle = 0; busy = false; picking = null;
-  view.setGame(game); view.select(-1); view.showHint(null);
+  view.setTheme(townOf(lv.id).theme); view.setGame(game); view.select(-1); view.showHint(null);
   mode = 'play'; show(null); hud(); drawBoosts(); beat({ type: 'go' });
   if (lv.tip) say(lv.tip);
   hintOnce('swap', 'I-drag ang kakanin papunta sa katabi, o i-tap ang dalawa.');
@@ -264,7 +264,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 
 // ---------- the title demo: the bot plays level 1 behind the title ----------
 let demoT = 0;
-function demo() { const g2 = createGame(LEVELS[0], (Math.random() * 1e9) >>> 0); game = g2; view.setGame(g2); }
+function demo() { const g2 = createGame(LEVELS[0], (Math.random() * 1e9) >>> 0); game = g2; view.setTheme('golden'); view.setGame(g2); }
 async function demoMove() {
   if (!game || busy || view.busy()) return;
   if (game.phase !== 'play') { demo(); return; }
