@@ -96,6 +96,28 @@ await E(`__kc.swap(${m1}, ${m2}), 1`); await sleep(150);
 await E('document.getElementById("pause-btn").click(), document.querySelector("#pause .to-levels").click(), document.querySelector("#levels .menu").click(), 1');
 const turn0 = await E('__kc.game ? __kc.game.turn : -1');
 check(await until(`__kc.mode === 'title' && __kc.game && __kc.game.turn !== ${turn0}`, 90000), 'the title demo plays after leaving mid-animation');
+// 5e. Lola: real when the people files are there, a stand-in without; she claps for a special and never covers the board
+await page.load(`${BASE}?test=1&level=sr-03&seed=6&instant`);
+await until('window.__kc && __kc.mode === "play" && __kc.lola');
+check(await until('__kc.lola.state() === "real"', 60000), `Lola is the real figure (${await E('__kc.lola.state()')})`);
+// the strong bot goes for specials: let it play a longer level until one is made
+await page.load(`${BASE}?test=1&level=sr-07&seed=6&instant&bot`);
+await until('window.__kc && __kc.lola && (__kc.lola.history().includes("clap") || __kc.mode === "result")', 90000);
+check(await E('__kc.lola.history().includes("clap")'), `Lola claps for a special (${await E('JSON.stringify(__kc.lola.history().slice(-6))')})`);
+await page.load(`${BASE}?test=1&level=sr-03&seed=6&instant`);
+await until('window.__kc && __kc.mode === "play" && __kc.lola');
+const overlap = async () => E(`(() => { const a = __kc.lola.box(), b = __kc.view.boardBox(); if (!a) return 'offscreen'; return a.x1 < b.x0 || a.x0 > b.x1 || a.y1 < b.y0 || a.y0 > b.y1 ? 'clear' : JSON.stringify({ lola: a, board: b }); })()`);
+const ov1 = await overlap(); check(ov1 === 'clear' || ov1 === 'offscreen', `Lola doesn't cover the board on desktop (${ov1})`);
+await shot('lola-desktop');
+await page.load(`${BASE}?test=1&level=sr-03&seed=6&people=0`);
+await until('window.__kc && __kc.mode === "play" && __kc.lola');
+check(await E('__kc.lola.state()') === 'standin', 'without the people files, a stand-in Lola');
+await page.cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+await page.load(`${BASE}?test=1&level=sr-03&seed=6`);
+await until('window.__kc && __kc.mode === "play" && __kc.lola'); await until('__kc.lola.state() === "real"', 60000); await sleep(1500);
+const ov2 = await overlap(); check(ov2 === 'clear' || ov2 === 'offscreen', `Lola doesn't cover the board on a phone (${ov2})`);
+await shot('lola-phone');
+await page.cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 760, deviceScaleFactor: 1, mobile: false });
 // 6. the bot finishes a level and the result screen shows
 await page.load(`${BASE}?test=1&level=sr-01&bot&instant&seed=2`);
 check(await until('__kc.mode === "result"', 90000), 'the bot finishes level 1');

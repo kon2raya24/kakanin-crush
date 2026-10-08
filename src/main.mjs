@@ -23,7 +23,7 @@ const LOLA = {
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 // ---------- the view: 3D, or the flat fallback ----------
-let view;
+let view, lola = null;
 async function makeView() {
   const canvas = $('view');
   const want3d = Q.get('flat') !== '1' && (() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; } })();
@@ -32,6 +32,7 @@ async function makeView() {
     catch (err) { console.warn('3D view failed, using the flat board', err); view = null; }
   }
   if (!view) { const { createFlat } = await import('./render2d.mjs'); const c2 = canvas.cloneNode(); canvas.replaceWith(c2); view = createFlat(c2); document.body.classList.add('flat'); }
+  if (view.scene) { const { createLola } = await import('./lola3d.mjs'); lola = createLola(view.scene, { enabled: Q.get('people') !== '0' }); }
   view.onCallout((text, step) => { const c = $('callout'); c.textContent = text; c.classList.remove('go'); void c.offsetWidth; c.classList.add('go'); });
   addEventListener('resize', () => view.resize());
   view.resize();
@@ -49,7 +50,8 @@ function show(name) {
 }
 function toast(text, ms = 2600) { const t = $('toast'); t.textContent = text; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, ms); }
 function hintOnce(id, text) { if (data.hints.includes(id)) return; data.hints.push(id); persist(); toast(text, 3600); }
-function say(text) { const b = $('bubble'); b.innerHTML = '<b>Lola:</b> '; b.append(text); b.hidden = false; clearTimeout(say.t); say.t = setTimeout(() => { b.hidden = true; }, 3800); }
+function say(text) {
+  if (lola) lola.say(); const b = $('bubble'); b.innerHTML = '<b>Lola:</b> '; b.append(text); b.hidden = false; clearTimeout(say.t); say.t = setTimeout(() => { b.hidden = true; }, 3800); }
 
 // ---------- HUD ----------
 const goalText = (q) => (q.type === 'collect' ? `${KAKANIN[q.kind]}` : q.type === 'latik' ? 'latik' : 'puntos');
@@ -82,6 +84,7 @@ function hud(prev) {
 const beats = []; // the last moves' beats, for the browser checks
 function beat(b) {
   A.event(b);
+  if (lola) lola.react(b);
   if (TEST) { beats.push({ type: b.type, t: performance.now() }); if (beats.length > 400) beats.splice(0, 200); }
 }
 
@@ -110,7 +113,7 @@ function start(k = levelIx) {
   const lv = LEVELS[k], seed = Q.get('seed') ? Number(Q.get('seed')) : (lv.seed * 7919 + Math.floor(Math.random() * 1e6)) >>> 0;
   game = createGame(lv, seed); sel = -1; cursor = -1; idle = 0; busy = false;
   view.setGame(game); view.select(-1); view.showHint(null);
-  mode = 'play'; show(null); hud(); A.event({ type: 'go' });
+  mode = 'play'; show(null); hud(); beat({ type: 'go' });
   if (lv.tip) say(lv.tip);
   hintOnce('swap', 'I-drag ang kakanin papunta sa katabi, o i-tap ang dalawa.');
 }
@@ -225,6 +228,7 @@ function frame(now) {
   if (mode === 'title' && (demoT += dt) > 1.2) { demoT = 0; demoMove(); }
   if (mode === 'play' && BOT && !busy && !view.busy() && game.phase === 'play') { const mv = chooseMove(game); if (mv) doSwap(...mv); }
   if (mode === 'play' && !busy && !view.busy() && game.phase === 'play' && (idle += dt) > 6) { view.showHint(hint(game)); idle = -999; }
+  if (lola) lola.update(dt);
   view.update(dt);
   requestAnimationFrame(frame);
 }
@@ -235,4 +239,4 @@ if ('serviceWorker' in navigator && !TEST) navigator.serviceWorker.register('sw.
 const startAt = Q.get('level') ? LEVELS.findIndex((l) => l.id === Q.get('level')) : -1;
 if (startAt >= 0) start(startAt); else titleScreen();
 requestAnimationFrame(frame);
-if (TEST) window.__kc = { get game() { return game; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), beats, audioStats: () => A.stats(), get cursor() { return cursor; }, LEVELS, busy: () => busy || view.busy() };
+if (TEST) window.__kc = { get game() { return game; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), beats, audioStats: () => A.stats(), get lola() { return lola && { state: lola.state, history: lola.history, box: () => view.screenBox(lola.root()) }; }, get cursor() { return cursor; }, LEVELS, busy: () => busy || view.busy() };

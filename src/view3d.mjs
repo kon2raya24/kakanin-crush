@@ -219,8 +219,26 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
     return out;
   }
 
+  // where an object (or the board) sits on screen, in CSS pixels, for layout checks
+  const box3 = new THREE.Box3(), corner = new THREE.Vector3();
+  function screenBox(obj) {
+    if (!obj) return null;
+    obj.updateWorldMatrix(true, true); box3.setFromObject(obj);
+    if (box3.isEmpty()) return null;
+    const r = canvas.getBoundingClientRect(); let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, seen = false;
+    for (let q = 0; q < 8; q++) {
+      corner.set(q & 1 ? box3.max.x : box3.min.x, q & 2 ? box3.max.y : box3.min.y, q & 4 ? box3.max.z : box3.min.z).project(camera);
+      if (corner.z > 1) continue; seen = true;
+      const sx = r.left + ((corner.x + 1) / 2) * r.width, sy = r.top + ((1 - corner.y) / 2) * r.height;
+      x0 = Math.min(x0, sx); y0 = Math.min(y0, sy); x1 = Math.max(x1, sx); y1 = Math.max(y1, sy);
+    }
+    if (!seen || x1 < r.left || x0 > r.right || y1 < r.top || y0 > r.bottom) return null; // off screen
+    return { x0, y0, x1, y1 };
+  }
+
   return {
-    setGame, play, pick, update, resize, icons,
+    setGame, play, pick, update, resize, icons, scene, screenBox,
+    boardBox: () => screenBox(boardG),
     select(i) { selected = i; },
     showHint(pair) { hintPair = pair; hintTiles.forEach((m, q) => { m.visible = !!pair; if (pair) m.position.copy(cellPos(pair[q], 0.05)); }); },
     busy: () => tweens.length > 0,
