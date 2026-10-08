@@ -225,7 +225,6 @@ function after(g, ev) {
   if (!findMoves(g).length) { shuffle(g); ev.push({ type: 'shuffle', cell: Array.from(g.cell), spec: Array.from(g.spec) }); }
 }
 
-function ubos(g, ev) { g.won = g.score >= g.stars[2] ? 3 : g.score >= g.stars[1] ? 2 : 1; g.phase = 'won'; ev.push({ type: 'end', won: true, stars: g.won, score: g.score }); }
 
 // ---------- specials ----------
 function specialFor(gr) {
@@ -288,6 +287,31 @@ function comboCells(g, a, b, ev) {
   else if (sandoks === 1) { rect(0, y - 1, W - 1, y + 1); rect(x - 1, 0, x + 1, H - 1); }
   else rect(x - 2, y - 2, x + 2, y + 2);
   return cells;
+}
+
+// Ubos-Benta! Every move left turns a plain kakanin into a Sandok, and they all go off.
+function ubos(g, ev) {
+  ev.push({ type: 'ubos', moves: g.moves });
+  const made = [];
+  while (g.moves > 0) {
+    const plain = [];
+    for (let j = 0; j < g.cell.length; j++) if (g.mask[j] && g.cell[j] >= 0 && g.cell[j] < BILAO && g.spec[j] === NONE) plain.push(j);
+    if (!plain.length) break;
+    const i = plain[Math.floor(rand(g) * plain.length)];
+    g.spec[i] = rand(g) < 0.5 ? SANDOK_H : SANDOK_V;
+    g.moves--; g.score += POINTS.ubos;
+    made.push([i, g.cell[i], g.spec[i]]);
+  }
+  ev.push({ type: 'ubosMake', made });
+  for (let round = 0; round < 10; round++) {
+    const live = [];
+    for (let j = 0; j < g.cell.length; j++) if (g.mask[j] && g.spec[j] !== NONE) live.push(j);
+    if (!live.length) break;
+    settle(g, ev, [], live);
+  }
+  g.won = g.score >= g.stars[2] ? 3 : g.score >= g.stars[1] ? 2 : 1;
+  g.phase = 'won';
+  ev.push({ type: 'end', won: true, stars: g.won, score: g.score });
 }
 
 export const _t = { wouldRun, shuffle, pickKind, gravity, refill };

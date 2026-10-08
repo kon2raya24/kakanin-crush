@@ -211,3 +211,43 @@ test('combos: Sandok+Sandok is a cross, Kaldero+Kaldero 5x5, Bilao+Bilao the who
   s = stepOf(swap(g, 24, 25));
   assert.ok(s.fired.length >= before, 'every piece of that kind went off as a Sandok');
 });
+import { hint } from '../src/game.mjs';
+
+test('a match on latik cleans one layer; the latik goal counts layers', () => {
+  const lv = L({ latik: ['..2..', '.....', '.....', '.....', '.....'], goals: [{ type: 'latik' }] });
+  const g = setBoard(createGame(lv), ['kppbu', 'pkbum', 'bumkb', 'umkbs', 'mkbsu']);
+  assert.equal(g.goals[0].need, 2);
+  const s = stepOf(swap(g, 0, 5)); // puto at 0,1,2: cell 2 has latik 2
+  assert.deepEqual(s.latik, [[2, 1]]);
+  assert.equal(g.goals[0].got, 1);
+  assert.equal(g.latik[2], 1);
+});
+
+test('Ubos-Benta: leftover moves become Sandoks that go off, then the stars are counted', () => {
+  const g = setBoard(createGame(L({ moves: 6, stars: [1, 900, 1e9], goals: [{ type: 'collect', kind: 'puto', n: 3 }] })), ['kppbu', 'pkbum', 'bumkb', 'umkbs', 'mkbsu']);
+  const r = swap(g, 0, 5);
+  const u = r.events.find((e) => e.type === 'ubosMake');
+  assert.equal(u.made.length, 5);
+  assert.ok(u.made.every(([, , sp]) => sp === SANDOK_H || sp === SANDOK_V));
+  assert.equal(g.moves, 0);
+  assert.equal(g.phase, 'won');
+  assert.equal(r.events.at(-1).type, 'end');
+  assert.equal(g.won, g.score >= 900 ? 2 : 1);
+  assert.ok(!g.spec.some((s) => s === SANDOK_H || s === SANDOK_V), 'every Sandok went off');
+});
+
+test('a board with no move is shuffled into a fair one, keeping its kakanin', () => {
+  const g = setBoard(createGame(L({ w: 4, h: 4, kinds: ['puto', 'kutsinta', 'sapin', 'bibingka'] })), ['pkpk', 'sbsb', 'pkpk', 'sbsb']);
+  assert.equal(findMoves(g).length, 0);
+  const before = [...g.cell].sort().join('');
+  _t.shuffle(g);
+  assert.ok(findMoves(g).length > 0);
+  assert.equal(findGroups(g).length, 0);
+  assert.equal([...g.cell].sort().join(''), before);
+});
+
+test('hint is a real move, or null on a still board', () => {
+  const g = createGame(L({ w: 7, h: 7, seed: 5 }));
+  const h = hint(g);
+  assert.ok(h && swap(clone(g), ...h).ok);
+});
