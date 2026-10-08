@@ -123,7 +123,7 @@ async function doSwap(a, b) {
   const g0 = game, prev = game.goals.map((q) => q.got);
   const r = swap(game, a, b);
   if (!r.ok) A.event({ type: 'tsk' });
-  await view.play(r.events, game, beat);
+  await view.play(r.events, game, (b) => { if (game === g0) beat(b); }); // a move you've left makes no more sound
   if (game !== g0) return; // the player left this game (restart, levels, menu) while it animated
   hud(prev);
   busy = false;
@@ -249,4 +249,4 @@ if ('serviceWorker' in navigator && !TEST) navigator.serviceWorker.register('sw.
 const startAt = Q.get('level') ? LEVELS.findIndex((l) => l.id === Q.get('level')) : -1;
 if (startAt >= 0) start(startAt); else titleScreen();
 requestAnimationFrame(frame);
-if (TEST) window.__kc = { get game() { return game; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), beats, audioStats: () => A.stats(), get lola() { return lola && { state: lola.state, history: lola.history, box: () => view.screenBox(lola.root()) }; }, get cursor() { return cursor; }, LEVELS, busy: () => busy || view.busy() };
+if (TEST) window.__kc = { get game() { return game; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), beats, audioStats: () => A.stats(), audio: A, get lola() { return lola && { state: lola.state, history: lola.history, box: () => view.screenBox(lola.root()) }; }, get cursor() { return cursor; }, LEVELS, busy: () => busy || view.busy() };

@@ -16,7 +16,8 @@ for (const [k, lv] of LEVELS.entries()) {
     const casual = rate(Array.from({ length: RUNS }, (_, s) => playLevel(lv, 1000 + s * 7, { casual: true })));
     const [lo, hi] = BANDS[k];
     assert.ok(casual >= lo && casual <= hi, `casual win rate ${casual} not in [${lo}, ${hi}]`);
-    const strong = Array.from({ length: RUNS }, (_, s) => playLevel(lv, 5000 + s * 7));
+    // 150 strong runs on fresh seeds: at 40 the standard error (~6%) can't tell 0.78 from 0.80
+    const strong = Array.from({ length: 150 }, (_, s) => playLevel(lv, 5000 + s * 7));
     assert.ok(rate(strong) >= 0.8, `strong win rate ${rate(strong)} under 0.8`);
     assert.ok(strong.some((r) => r.stars === 3), 'no strong run got 3 stars on fresh seeds');
   });

@@ -81,6 +81,25 @@ check(await E('__kc.busy()'), 'the last move is still animating');
 await E('document.getElementById("pause-btn").click(), document.getElementById("restart").click(), 1');
 await until('!__kc.busy()', 90000); await sleep(1500);
 check(await E('__kc.mode') === 'play' && await E('__kc.game.phase') === 'play' && await E('__kc.game.moves === __kc.LEVELS[0].moves'), `an old animation can't end the new game (mode ${await E('__kc.mode')})`);
+// 5b2. leaving mid-animation also silences the old move: none of its beats reach the new level
+await page.load(`${BASE}?test=1&level=sr-01&seed=4`);
+await until('window.__kc && __kc.mode === "play"');
+{
+  const [la, lb] = JSON.parse(await E('JSON.stringify(__kc.moves()[0])'));
+  await E(`__kc.swap(${la}, ${lb}), 1`); await sleep(150);
+  await E('document.getElementById("pause-btn").click(), document.getElementById("restart").click(), __kc.beats.length = 0, 1');
+  await until('!__kc.busy()', 90000); await sleep(1500);
+  const late = JSON.parse(await E('JSON.stringify(__kc.beats.map((b) => b.type).filter((t) => t !== "go"))'));
+  check(late.length === 0, `no sounds or reactions from a move you left (${late.join(' ') || 'none'})`);
+}
+// 5b3. many specials going off at once stay a few voices, not a pile-up
+{
+  await E('document.getElementById("hint-btn").click(), 1');
+  const p0 = await E('__kc.audioStats().plays');
+  await E('for (let k = 0; k < 12; k++) __kc.audio.event({ type: "fire", i: k, spec: k % 2 ? 3 : 1 }); 1');
+  const burst = (await E('__kc.audioStats().plays')) - p0;
+  check(burst <= 4, `twelve specials at once play at most 4 samples (${burst})`);
+}
 // 5c. keys after moving from a 9x9 level to a 7x7 one
 await page.load(`${BASE}?test=1&level=sr-07&seed=4&instant`);
 await until('window.__kc && __kc.mode === "play"');

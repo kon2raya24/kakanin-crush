@@ -21,7 +21,7 @@ const SAMPLES = {
 export function createAudio({ base = 'assets/sfx/' } = {}) {
   let ctx = null, master = null, sfx = null, synth = null, bus = null, verb = null, noise = null;
   let muted = false, playing = false, step = 0, nextAt = 0;
-  const buffers = new Map(), stats = { plays: 0, fails: 0, loaded: 0 };
+  const buffers = new Map(), stats = { plays: 0, fails: 0, loaded: 0 }, burst = { t: -1, n: 0 };
 
   function start() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
@@ -133,11 +133,18 @@ export function createAudio({ base = 'assets/sfx/' } = {}) {
           break;
         }
         case 'land': if (b.count) tone(90 + Math.random() * 20, 0.09, 'sine', 0.05); break;
-        case 'fire':
-          if (b.spec === 1 || b.spec === 2) { play('sandok', { gain: 0.6 }); sweep(0.35, 600, 5000, 0.12); }
-          else if (b.spec === 3) { play('kaldero', { gain: 0.55 }); tone(70, 0.35, 'sine', 0.18, 0, 0.55); }
-          else if (b.spec === 4) { for (let k = 0; k < 6; k++) play('glass', { gain: 0.35, rate: 1 + k * 0.12, at: k * 0.05, vary: 0 }); for (let k = 0; k < 8; k++) marimba(deg(k + 3, 72), k * 0.04, 0.05, 0.5); }
+        case 'fire': {
+          // specials that go off together (a Bilao turning a whole kind into Sandoks) stay a few voices:
+          // samples for the first three in a 40 ms burst, one low thump, softer as the burst grows
+          const now = ctx.currentTime;
+          if (now - burst.t > 0.04) { burst.t = now; burst.n = 0; }
+          if (++burst.n > 3) break;
+          const soft = 1 / Math.sqrt(burst.n), first = burst.n === 1;
+          if (b.spec === 1 || b.spec === 2) { play('sandok', { gain: 0.6 * soft }); sweep(0.35, 600, 5000, 0.12 * soft); }
+          else if (b.spec === 3) { play('kaldero', { gain: 0.55 * soft }); if (first) tone(70, 0.35, 'sine', 0.18, 0, 0.55); }
+          else if (b.spec === 4) { for (let k = 0; k < 6; k++) play('glass', { gain: 0.35 * soft, rate: 1 + k * 0.12, at: k * 0.05, vary: 0 }); if (first) for (let k = 0; k < 8; k++) marimba(deg(k + 3, 72), k * 0.04, 0.05, 0.5); }
           break;
+        }
         case 'combo': play('kaldero', { gain: 0.6, rate: 0.8 }); play('sandok', { gain: 0.5, at: 0.05 }); tone(110, 0.6, 'sine', 0.18, 0, 0.4); break;
         case 'shuffle': play('shuffle', { gain: 0.6 }); break;
         case 'goal': play('coin', { gain: 0.3, rate: 1.1 }); break;

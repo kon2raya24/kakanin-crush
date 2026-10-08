@@ -37,7 +37,7 @@ export const LEVELS = [
   { id: 'sr-11', name: 'Bilao na may Latik', w: 9, h: 9, mask: BILAO9, kinds: K6, moves: 26, goals: [{ type: 'latik' }, { type: 'collect', kind: 'sapin', n: 18 }], stars: [1, 17300, 27200], seed: 111,
     latik: lat(['.........', '.........', '..11111..', '..12221..', '..12221..', '..12221..', '..11111..', '.........', '.........']) },
   { id: 'sr-12', name: 'Paikot', w: 9, h: 9, mask: RING9, kinds: K4, moves: 21, goals: [{ type: 'collect', kind: 'kutsinta', n: 27 }], stars: [1, 8200, 16100], seed: 112 },
-  { id: 'sr-13', name: 'Latik Kahit Saan', w: 9, h: 9, kinds: K6, moves: 34, goals: [{ type: 'latik' }], stars: [1, 22900, 29000], seed: 113,
+  { id: 'sr-13', name: 'Latik Kahit Saan', w: 9, h: 9, kinds: K5, moves: 20, goals: [{ type: 'latik' }], stars: [1, 19200, 35100], seed: 113,
     latik: lat(['.........', '.1111111.', '.1.....1.', '.1.111.1.', '.1.111.1.', '.1.111.1.', '.1.....1.', '.1111111.', '.........']) },
   { id: 'sr-14', name: 'Dalawang Order', w: 9, h: 9, kinds: K6, moves: 28, goals: [{ type: 'collect', kind: 'bibingka', n: 24 }, { type: 'collect', kind: 'ube', n: 24 }], stars: [1, 16800, 26700], seed: 114 },
   { id: 'sr-15', name: 'Pista ng San Roque', w: 9, h: 9, mask: BILAO9, kinds: K6, moves: 28, goals: [{ type: 'latik' }, { type: 'collect', kind: 'puto', n: 25 }, { type: 'collect', kind: 'suman', n: 20 }], stars: [1, 17800, 27700], seed: 115,
