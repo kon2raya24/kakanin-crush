@@ -110,7 +110,7 @@ function start(k = levelIx) {
   const lv = LEVELS[k], seed = Q.get('seed') ? Number(Q.get('seed')) : (lv.seed * 7919 + Math.floor(Math.random() * 1e6)) >>> 0;
   game = createGame(lv, seed); sel = -1; cursor = -1; idle = 0; busy = false;
   view.setGame(game); view.select(-1); view.showHint(null);
-  mode = 'play'; show(null); hud();
+  mode = 'play'; show(null); hud(); A.event({ type: 'go' });
   if (lv.tip) say(lv.tip);
   hintOnce('swap', 'I-drag ang kakanin papunta sa katabi, o i-tap ang dalawa.');
 }
@@ -204,6 +204,7 @@ $('next').onclick = () => intro(levelIx + 1);
 $('pause-btn').onclick = pause;
 $('hint-btn').onclick = () => { if (mode === 'play' && game) view.showHint(hint(game)); };
 for (const b of document.querySelectorAll('.to-levels')) b.onclick = levelsScreen;
+document.addEventListener('click', (e) => { if (e.target.closest('button')) A.event({ type: 'click' }); });
 for (const b of document.querySelectorAll('.menu')) b.onclick = titleScreen;
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 
@@ -234,4 +235,4 @@ if ('serviceWorker' in navigator && !TEST) navigator.serviceWorker.register('sw.
 const startAt = Q.get('level') ? LEVELS.findIndex((l) => l.id === Q.get('level')) : -1;
 if (startAt >= 0) start(startAt); else titleScreen();
 requestAnimationFrame(frame);
-if (TEST) window.__kc = { get game() { return game; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), beats, get cursor() { return cursor; }, LEVELS, busy: () => busy || view.busy() };
+if (TEST) window.__kc = { get game() { return game; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), beats, audioStats: () => A.stats(), get cursor() { return cursor; }, LEVELS, busy: () => busy || view.busy() };

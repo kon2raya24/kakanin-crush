@@ -35,6 +35,14 @@ const beats = JSON.parse(await E('JSON.stringify(__kc.beats.map((b) => [b.type, 
 const at = (type) => beats.find((b) => b[0] === type);
 check(at('swap') && at('pop') && at('land') && beats.indexOf(at('swap')) < beats.indexOf(at('pop')) && beats.indexOf(at('pop')) < beats.indexOf(at('land')), `beats come in order: ${beats.map((b) => b[0]).join(' ')}`);
 check(at('pop') && at('pop')[1] - at('swap')[1] >= 100, 'the pop sounds when the pieces burst, not at the swap');
+// 1c. the recorded sounds load and play with a move
+await E('__kc.view && document.getElementById("hint-btn").click(), 1'); // a user gesture starts the audio
+await until('__kc.audioStats().loaded >= 40', 30000);
+const p0 = await E('__kc.audioStats().plays');
+const [sa, sb] = JSON.parse(await E('JSON.stringify(__kc.moves()[0])'));
+await E(`__kc.swap(${sa}, ${sb}), 1`); await until('!__kc.busy()', 90000);
+const st = JSON.parse(await E('JSON.stringify(__kc.audioStats())'));
+check(st.fails === 0 && st.plays - p0 >= 3, `recorded sounds load and play (loaded ${st.loaded}, fails ${st.fails}, plays ${st.plays - p0})`);
 // 2. drag a real move
 const [a, b] = JSON.parse(await E('JSON.stringify(__kc.moves()[0])'));
 const pa = await cellPoint(a), pb = await cellPoint(b);
