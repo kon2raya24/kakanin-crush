@@ -129,4 +129,106 @@ function shuffle(g) {
 
 export const hashState = (g) => JSON.stringify([Array.from(g.cell), Array.from(g.spec), Array.from(g.latik), g.score, g.moves, g.rs, g.phase, g.goals.map((q) => q.got)]);
 
-export const _t = { wouldRun, shuffle, pickKind };
+// ---------- a move ----------
+function gravity(g) {
+  const { W, H } = g, falls = [];
+  for (let x = 0; x < W; x++) {
+    const rows = []; for (let y = H - 1; y >= 0; y--) if (g.mask[y * W + x]) rows.push(y);
+    let w = 0;
+    for (const y of rows) {
+      const i = y * W + x;
+      if (g.cell[i] === EMPTY) continue;
+      const to = rows[w++] * W + x;
+      if (to !== i) { g.cell[to] = g.cell[i]; g.spec[to] = g.spec[i]; g.cell[i] = EMPTY; g.spec[i] = NONE; falls.push([i, to]); }
+    }
+  }
+  return falls;
+}
+
+function refill(g) {
+  const { W, H } = g, spawns = [];
+  for (let x = 0; x < W; x++) {
+    let n = 0;
+    for (let y = H - 1; y >= 0; y--) { const i = y * W + x; if (g.mask[i] && g.cell[i] === EMPTY) { g.cell[i] = pickKind(g, i); spawns.push([i, g.cell[i], ++n]); } }
+  }
+  return spawns;
+}
+
+function refreshGoals(g) {
+  const left = g.latik.reduce((a, b) => a + b, 0);
+  for (const q of g.goals) { if (q.type === 'latik') q.got = q.need - left; if (q.type === 'score') q.got = Math.min(q.need, g.score); }
+}
+export const goalsMet = (g) => g.goals.every((q) => q.got >= q.need);
+
+// Clear the start cells and everything the specials among them set off; keep is the cells becoming specials.
+function explode(g, start, keep) {
+  const seen = new Set(), q = [...start], fired = [];
+  while (q.length) {
+    const i = q.shift();
+    if (seen.has(i) || keep.has(i) || !g.mask[i] || g.cell[i] === EMPTY) continue;
+    seen.add(i);
+    if (g.spec[i] !== NONE) { fired.push([i, g.spec[i]]); q.push(...blast(g, i, g.spec[i])); }
+  }
+  const cleared = [], latik = [];
+  for (const i of seen) {
+    cleared.push([i, g.cell[i], g.spec[i]]);
+    for (const goal of g.goals) if (goal.type === 'collect' && goal.kind === g.cell[i]) goal.got++;
+    if (g.latik[i]) { g.latik[i]--; latik.push([i, g.latik[i]]); }
+    g.cell[i] = EMPTY; g.spec[i] = NONE;
+  }
+  return { cleared, fired, latik };
+}
+
+// Resolve the board until nothing matches. first: cells to clear in step 1 (a combo); prefer: where specials go.
+function settle(g, ev, prefer = [], first = null) {
+  for (let step = 1; step < 80; step++) {
+    let start; const made = [];
+    if (step === 1 && first) start = first;
+    else {
+      const groups = findGroups(g);
+      if (!groups.length) break;
+      start = [];
+      for (const gr of groups) {
+        start.push(...gr.cells);
+        const sp = specialFor(gr);
+        if (sp !== NONE) { const at = placeFor(g, gr, sp, prefer); made.push([at, sp === LAHAT ? BILAO : g.cell[at], sp]); }
+      }
+    }
+    const keep = new Set(made.map((m) => m[0]));
+    const out = explode(g, start, keep);
+    for (const [i, k, sp] of made) { g.cell[i] = k; g.spec[i] = sp; if (g.latik[i]) { g.latik[i]--; out.latik.push([i, g.latik[i]]); } }
+    const points = out.cleared.length * POINTS.piece * step + out.fired.length * POINTS.fired + out.latik.length * POINTS.latik;
+    g.score += points;
+    const falls = gravity(g), spawns = refill(g);
+    ev.push({ type: 'step', step, ...out, made, falls, spawns, points });
+    prefer = [];
+  }
+  refreshGoals(g);
+}
+
+export function swap(g, a, b) {
+  const ev = [];
+  if (g.phase !== 'play' || !adjacent(g, a, b) || !movable(g, a) || !movable(g, b)) return { ok: false, events: ev };
+  const combo = isCombo(g, a, b);
+  exchange(g, a, b);
+  if (!combo && !findGroups(g).length) { exchange(g, a, b); ev.push({ type: 'bounce', a, b }); return { ok: false, events: ev }; }
+  g.moves--; g.turn++;
+  ev.push({ type: 'swap', a, b });
+  settle(g, ev, [b, a], combo ? comboCells(g, a, b, ev) : null);
+  after(g, ev);
+  return { ok: true, events: ev };
+}
+
+function after(g, ev) {
+  if (goalsMet(g)) { ubos(g, ev); return; }
+  if (g.moves <= 0) { g.phase = 'lost'; ev.push({ type: 'end', won: false, stars: 0, score: g.score }); return; }
+  if (!findMoves(g).length) { shuffle(g); ev.push({ type: 'shuffle', cell: Array.from(g.cell), spec: Array.from(g.spec) }); }
+}
+
+function specialFor() { return NONE; }
+function placeFor(g, gr) { return [...gr.cells][0]; }
+function blast() { return []; }
+function comboCells(g, a, b) { return [a, b]; }
+function ubos(g, ev) { g.won = g.score >= g.stars[2] ? 3 : g.score >= g.stars[1] ? 2 : 1; g.phase = 'won'; ev.push({ type: 'end', won: true, stars: g.won, score: g.score }); }
+
+export const _t = { wouldRun, shuffle, pickKind, gravity, refill };

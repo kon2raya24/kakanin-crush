@@ -73,3 +73,68 @@ test('clone is independent', () => {
   c.cell[0] = 5; c.goals[0].got = 9;
   assert.notEqual(g.cell[0] === 5 && g.goals[0].got === 9, true);
 });
+import { swap, goalsMet, POINTS } from '../src/game.mjs';
+const noRun = (g) => findGroups(g).length === 0;
+const full = (g) => g.cell.every((c, i) => !g.mask[i] || c !== EMPTY);
+
+test('an invalid swap bounces and costs nothing', () => {
+  const g = setBoard(createGame(L()), ['pkbum', 'kbump', 'bumpk', 'umpkb', 'mpkbu']);
+  const before = hashState(g);
+  const r = swap(g, 0, 1);
+  assert.equal(r.ok, false);
+  assert.deepEqual(r.events, [{ type: 'bounce', a: 0, b: 1 }]);
+  assert.equal(hashState(g), before);
+  for (const bad of [[0, 2], [0, 6], [4, 5], [-1, 0], [0, 99], [NaN, 1], ['0', 1]]) assert.equal(swap(g, ...bad).ok, false);
+});
+
+test('a match of three clears, falls, refills, scores and counts toward the goal', () => {
+  const g = setBoard(createGame(L({ goals: [{ type: 'collect', kind: 'puto', n: 3 }, { type: 'score', n: 1e9 }] })), ['kppbu', 'pkbum', 'bumkb', 'umkbs', 'mkbsu']);
+  const r = swap(g, 0, 5); // the puto at 5 moves up to 0: three puto in row 0
+  assert.equal(r.ok, true);
+  assert.equal(r.events[0].type, 'swap');
+  const step = r.events.find((e) => e.type === 'step');
+  assert.deepEqual(step.cleared.map((c) => c[0]).sort((a, b) => a - b), [0, 1, 2]);
+  assert.equal(step.points, 3 * POINTS.piece);
+  assert.equal(g.moves, 9);
+  assert.ok(g.goals[0].got >= 3);
+  assert.ok(noRun(g) && full(g));
+});
+
+test('falls keep column order and pass through holes; refills never make a match by themselves', () => {
+  const g = setBoard(createGame(L({ w: 3, h: 4, mask: ['###', '#.#', '###', '###'] })), ['kbu', 'm.s', 'ppp', 'bus']);
+  g.cell[6] = g.cell[7] = g.cell[8] = EMPTY;
+  const falls = _t.gravity(g).map(([a, b]) => `${a}>${b}`).sort();
+  assert.deepEqual(falls, ['0>3', '1>7', '2>5', '3>6', '5>8'].sort());
+  assert.equal(g.cell[7], 3, 'the bibingka fell through the hole to row 2');
+  const h = setBoard(createGame(L({ w: 3, h: 1, kinds: ['puto', 'kutsinta', 'sapin', 'bibingka'] })), ['ppk']);
+  for (let s = 1; s < 60; s++) { h.rs = s; h.cell[2] = EMPTY; _t.refill(h); assert.notEqual(h.cell[2], 0); }
+});
+
+test('the game is won when the goals are met and lost when the moves run out', () => {
+  const g = setBoard(createGame(L({ moves: 1, goals: [{ type: 'collect', kind: 'puto', n: 3 }] })), ['kppbu', 'pkbum', 'bumkb', 'umkbs', 'mkbsu']);
+  const r = swap(g, 0, 5);
+  assert.equal(g.phase, 'won');
+  assert.ok(goalsMet(g));
+  assert.equal(r.events.at(-1).type, 'end');
+  assert.equal(r.events.at(-1).won, true);
+  const h = setBoard(createGame(L({ moves: 1, goals: [{ type: 'collect', kind: 'puto', n: 99 }] })), ['kppbu', 'pkbum', 'bumkb', 'umkbs', 'mkbsu']);
+  swap(h, 0, 5);
+  assert.equal(h.phase, 'lost');
+  assert.equal(swap(h, 1, 2).ok, false, 'no moves after the end');
+});
+
+test('replays are exact: same seed and moves give the same state', () => {
+  const play = () => { const g = createGame(L({ w: 8, h: 8, kinds: KAKANIN.slice(0, 5), moves: 40, seed: 7 })); for (let k = 0; k < 30 && g.phase === 'play'; k++) swap(g, ...findMoves(g)[0]); return hashState(g); };
+  assert.equal(play(), play());
+});
+
+test('after any move the board is full and still', () => {
+  for (let seed = 1; seed <= 15; seed++) {
+    const g = createGame(L({ w: 9, h: 9, kinds: KAKANIN.slice(0, 5), moves: 40, seed }));
+    for (let k = 0; k < 25 && g.phase === 'play'; k++) {
+      const mv = findMoves(g);
+      swap(g, ...mv[(seed * 7 + k) % mv.length]);
+      assert.ok(noRun(g) && full(g), `seed ${seed} move ${k}`);
+    }
+  }
+});
