@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kakanin Crush</title>
+<meta name="description" content="Match-3, Pinoy style, in 3D: swap puto, kutsinta, sapin-sapin, bibingka, ube halaya and suman on Lola Pacing's bilao at a fiesta stall. Make a Sandok, a Kaldero, a Bilao ng Lahat, clean the latik, and sell out with an Ubos-Benta!">
+<meta property="og:title" content="Kakanin Crush: Ubos-Benta!">
+<meta property="og:description" content="Match the kakanin on Lola's bilao. Sandok, Kaldero, Bilao ng Lahat — and an Ubos-Benta to finish.">
+<meta property="og:image" content="https://kakanin-crush.vercel.app/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#2a1a12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kakanin Crush">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Barlow+Condensed:ital,wght@0,700;0,800;1,800;1,900&display=swap" rel="stylesheet">
+<style>
+:root { --ink: #fff8e1; --muted: #e8d8c8; --gold: #ffd23f; --line: #d8c9a0; --dark: #120d14; --wood: #d9a15c; --woodedge: #8a5526; --orange: #c8501f; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #2a1a12; color: var(--ink); font: 16px/1.4 "Baloo 2", system-ui, sans-serif; }
+[hidden] { display: none !important; }
+.stage { position: fixed; inset: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+#view { display: block; width: 100%; height: 100%; }
+#hud { position: absolute; inset: 0; pointer-events: none; }
+.hud-top { position: absolute; top: max(10px, env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.chip { background: linear-gradient(180deg, rgba(34,24,42,.88), rgba(14,10,18,.88)); border: 2px solid var(--line); box-shadow: 0 0 0 2px var(--dark), 0 6px 14px rgba(0,0,0,.4); padding: 4px 16px 3px; clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%); min-width: 96px; }
+.hud-top .chip:last-child { clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%); text-align: right; }
+.chip.mid { clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 100%, 0 100%); text-align: center; }
+.chip small { display: block; font: italic 800 11px/1.1 "Barlow Condensed", sans-serif; letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
+.chip b { font: italic 900 26px/1.05 "Barlow Condensed", sans-serif; background: linear-gradient(180deg, #fffbe0, #ffd23f 50%, #e8741c); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; white-space: nowrap; }
+.chip.mid b { font-size: 22px; letter-spacing: .06em; }
+.chip.mid em { display: block; font: italic 800 13px/1.1 "Barlow Condensed", sans-serif; letter-spacing: .08em; color: #9ad7ff; }
+#h-best b { background: linear-gradient(180deg, #fff0fa, #ff8ae2 55%, #c0308a); -webkit-background-clip: text; background-clip: text; }
+/* the signboards */
+.signs { position: absolute; display: flex; gap: 10px; }
+.sign { background: var(--wood); border: 4px solid var(--woodedge); border-radius: 6px; box-shadow: 0 8px 16px #0006; padding: 6px 10px 8px; color: #3a2210; min-width: 132px; }
+.sign h4 { margin: 0 0 6px; text-align: center; font: italic 800 18px/1.3 "Barlow Condensed", sans-serif; letter-spacing: .06em; color: #fff2c8; background: var(--orange); border-radius: 4px; text-shadow: 0 2px 0 #7a2a0c; }
+.goal { display: flex; align-items: center; gap: 6px; font: 800 18px/1.1 "Barlow Condensed", sans-serif; }
+.goal img { width: 36px; height: 36px; }
+.goal.done { opacity: .55; text-decoration: line-through; }
+.goal.pop { animation: pop .35s cubic-bezier(.2,1.6,.4,1); }
+@keyframes pop { from { transform: scale(1.35); } }
+#h-moves { text-align: center; font: italic 900 40px/1 "Barlow Condensed", sans-serif; }
+#h-moves.low { color: #c0182e; }
+.meter { height: 12px; background: var(--woodedge); border-radius: 6px; overflow: hidden; position: relative; }
+.meter i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #ffd23f, #ff9f43); border-radius: 6px; }
+.meter s { position: absolute; top: -3px; width: 2px; height: 18px; background: #3a2210; }
+.stars { text-align: center; color: var(--orange); font-size: 22px; letter-spacing: 4px; }
+/* desktop: signboards left and right of the stall; phone portrait: a strip above the board */
+@media (min-aspect-ratio: 9/10) {
+  #signs-l { left: 2vw; top: 22vh; flex-direction: column; }
+  #signs-r { right: 2vw; top: 22vh; flex-direction: column; }
+}
+@media (max-aspect-ratio: 9/10) {
+  .signs { top: calc(max(10px, env(safe-area-inset-top)) + 60px); }
+  #signs-l { left: 8px; } #signs-r { right: 8px; }
+  .sign { min-width: 0; padding: 3px 6px 5px; } .sign h4 { font-size: 13px; margin-bottom: 3px; }
+  .goal { font-size: 15px; } .goal img { width: 26px; height: 26px; }
+  #h-moves { font-size: 28px; }
+  #sign-stars { display: none; }
+}
+#callout { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font: italic 900 clamp(40px, 9vw, 86px)/1 "Barlow Condensed", sans-serif; letter-spacing: .04em; color: #fff4c8; -webkit-text-stroke: 3px #7a2a0c; text-shadow: 0 6px 0 #7a2a0c, 0 0 30px rgba(255,200,80,.6); pointer-events: none; white-space: nowrap; }
+#callout.go { animation: call .9s ease-out forwards; }
+@keyframes call { 0% { transform: translate(-50%, -50%) scale(.4); opacity: 0; } 20% { transform: translate(-50%, -50%) scale(1.12); opacity: 1; } 70% { opacity: 1; } 100% { transform: translate(-50%, -70%) scale(1); opacity: 0; } }
+#bubble { position: absolute; left: 3vw; bottom: 5vh; max-width: min(320px, 70vw); background: #fff; color: #222; border: 2px solid #222; border-radius: 14px; padding: 6px 14px; font: italic 800 15px/1.3 "Baloo 2", sans-serif; }
+#bubble b { color: #c8501f; font-style: normal; }
+.corner { position: absolute; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); pointer-events: auto; display: flex; gap: 6px; }
+button { font: inherit; font-weight: 800; color: var(--ink); background: linear-gradient(180deg, #4a3428, #2a1a12); border: 2px solid var(--line); border-radius: 10px; padding: 8px 18px; cursor: pointer; min-height: 44px; }
+button:focus-visible { outline: 3px solid #ff8ae2; outline-offset: 2px; }
+button.primary { background: linear-gradient(180deg, #ffe680, #ffb02e); color: #3a1a08; border-color: #fff4c8; box-shadow: 0 4px 0 #a8641c; }
+.corner button { min-height: 36px; padding: 2px 12px; font-size: 14px; background: rgba(20,14,24,.6); }
+.screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 12px; padding: 20px; text-align: center; background: radial-gradient(ellipse at 50% 30%, rgba(42,26,18,.55), rgba(18,10,8,.88)); overflow-y: auto; }
+.logo { margin: 0; font: italic 900 clamp(52px, 13vw, 96px)/.9 "Barlow Condensed", sans-serif; letter-spacing: .02em; background: linear-gradient(180deg, #fffbe0, #ffd23f 45%, #e8741c); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 6px 0 #7a2a0c); }
+.logo small { display: block; font-size: .32em; letter-spacing: .2em; -webkit-text-fill-color: #ff8ae2; }
+.tag { margin: 0; color: var(--muted); max-width: 30em; }
+h2 { margin: 0; font: italic 900 clamp(30px, 7vw, 48px)/1 "Barlow Condensed", sans-serif; color: var(--gold); letter-spacing: .03em; }
+.grid { display: grid; grid-template-columns: repeat(5, 64px); gap: 10px; }
+.lvl { width: 64px; height: 64px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font: italic 900 24px/1 "Barlow Condensed", sans-serif; }
+.lvl small { font-size: 12px; color: var(--gold); letter-spacing: 1px; }
+.lvl:disabled { opacity: .4; cursor: default; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.big-stars { font-size: 48px; color: var(--gold); letter-spacing: 8px; text-shadow: 0 4px 0 #7a2a0c; }
+.help { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); pointer-events: auto; }
+.help a { color: var(--gold); }
+#toast { position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%); background: rgba(18,10,8,.94); border: 2px solid var(--gold); border-radius: 12px; padding: 6px 14px; font-weight: 700; font-size: 14px; pointer-events: none; max-width: 90%; text-align: center; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</head>
+<body>
+<main class="stage" id="stage">
+  <canvas id="view" aria-label="Lola Pacing's bilao of kakanin at a fiesta stall"></canvas>
+  <div id="hud" hidden>
+    <div class="hud-top">
+      <div class="chip" id="h-score"><small>Puntos</small><b>0</b></div>
+      <div class="chip mid" id="h-level"><b>SAN ROQUE 1</b><em>Unang Benta</em></div>
+      <div class="chip" id="h-best"><small>Best</small><b>0</b></div>
+    </div>
+    <div class="signs" id="signs-l">
+      <div class="sign"><h4>KAILANGAN</h4><div id="h-goals"></div></div>
+      <div class="sign"><h4>GALAW</h4><div id="h-moves">0</div></div>
+    </div>
+    <div class="signs" id="signs-r">
+      <div class="sign" id="sign-stars"><h4>BITUIN</h4><div class="stars" id="h-stars">☆☆☆</div><div class="meter"><i id="h-meter"></i><s id="h-s2"></s><s id="h-s3"></s></div></div>
+    </div>
+    <div id="callout"></div>
+    <div id="bubble" hidden></div>
+    <div class="corner"><button type="button" id="hint-btn" aria-label="Show a hint">💡</button><button type="button" id="pause-btn" aria-label="Pause">❚❚ Hinto</button></div>
+  </div>
+  <div id="toast" role="status" hidden></div>
+
+  <section class="screen" id="title">
+    <h1 class="logo">KAKANIN<br>CRUSH<small>UBOS-BENTA!</small></h1>
+    <p class="tag">Tulungan si Lola Pacing na maubos ang paninda! Ipagpalit ang magkatabing kakanin para makabuo ng tatlo o higit pa.</p>
+    <div class="row"><button type="button" class="primary" id="play">Laro na! · Play</button><button type="button" class="sound" id="sound"></button></div>
+    <p class="tag" id="title-stars"></p>
+  </section>
+
+  <section class="screen" id="levels" hidden>
+    <h2>San Roque</h2>
+    <p class="tag">Sari-sari street, golden hour · <span id="town-stars"></span></p>
+    <div class="grid" id="grid"></div>
+    <div class="row"><button type="button" class="menu">Menu</button></div>
+  </section>
+
+  <section class="screen" id="intro" hidden>
+    <h2 id="intro-name"></h2>
+    <p class="tag" id="intro-goals"></p>
+    <p id="intro-tip" class="tag"></p>
+    <div class="row"><button type="button" class="primary" id="go">Simulan! · Start</button><button type="button" class="to-levels">Bumalik</button></div>
+  </section>
+
+  <section class="screen" id="pause" hidden>
+    <h2>Hinto</h2>
+    <div class="row"><button type="button" class="primary" id="resume">Tuloy · Resume</button><button type="button" id="restart">Ulitin</button><button type="button" class="to-levels">Mga Antas</button><button type="button" class="sound"></button></div>
+  </section>
+
+  <section class="screen" id="result" hidden>
+    <h2 id="result-title"></h2>
+    <div class="big-stars" id="result-stars"></div>
+    <p class="tag" id="result-score"></p>
+    <p class="tag" id="result-lola"></p>
+    <div class="row"><button type="button" class="primary" id="next">Susunod ▶</button><button type="button" id="again">Ulitin</button><button type="button" class="to-levels">Mga Antas</button></div>
+  </section>
+  <p class="help" id="help">A match-3 by <a href="https://kon2raya.netlify.app" target="_blank" rel="noopener">Lemmuel Turaya</a> · <a href="https://tambayan-arcade.vercel.app/">More games</a> · <a href="https://tambayan-arcade.vercel.app/#support">☕ Support</a></p>
+</main>
+<script type="module" src="src/main.mjs"></script>
+</body>
+</html>
