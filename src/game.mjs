@@ -225,10 +225,69 @@ function after(g, ev) {
   if (!findMoves(g).length) { shuffle(g); ev.push({ type: 'shuffle', cell: Array.from(g.cell), spec: Array.from(g.spec) }); }
 }
 
-function specialFor() { return NONE; }
-function placeFor(g, gr) { return [...gr.cells][0]; }
-function blast() { return []; }
-function comboCells(g, a, b) { return [a, b]; }
 function ubos(g, ev) { g.won = g.score >= g.stars[2] ? 3 : g.score >= g.stars[1] ? 2 : 1; g.phase = 'won'; ev.push({ type: 'end', won: true, stars: g.won, score: g.score }); }
+
+// ---------- specials ----------
+function specialFor(gr) {
+  const long = Math.max(...gr.runs.map((r) => r.cells.length));
+  if (long >= 5) return LAHAT;
+  const hasH = gr.runs.some((r) => r.dir === 'h'), hasV = gr.runs.some((r) => r.dir === 'v');
+  if (hasH && hasV) return KALDERO;
+  if (long === 4) return gr.runs.find((r) => r.cells.length === 4).dir === 'h' ? SANDOK_H : SANDOK_V;
+  return NONE;
+}
+
+function placeFor(g, gr, sp, prefer) {
+  if (sp === KALDERO) {
+    const h = new Set(gr.runs.filter((r) => r.dir === 'h').flatMap((r) => r.cells));
+    for (const r of gr.runs) if (r.dir === 'v') for (const c of r.cells) if (h.has(c) && g.spec[c] === NONE) return c;
+  }
+  for (const c of prefer) if (gr.cells.has(c) && g.spec[c] === NONE) return c;
+  const long = gr.runs.reduce((a, r) => (r.cells.length > a.cells.length ? r : a));
+  for (const c of [long.cells[1], ...long.cells]) if (g.spec[c] === NONE) return c;
+  return long.cells[1];
+}
+
+function commonKind(g) {
+  const n = new Array(BILAO).fill(0);
+  for (let j = 0; j < g.cell.length; j++) if (g.mask[j] && g.cell[j] >= 0 && g.cell[j] < BILAO) n[g.cell[j]]++;
+  let best = 0; for (let k = 1; k < BILAO; k++) if (n[k] > n[best]) best = k;
+  return best;
+}
+
+// The cells a special sets off.
+function blast(g, i, sp) {
+  const { W, H } = g, x = i % W, y = (i / W) | 0, out = [];
+  const add = (xx, yy) => { if (xx >= 0 && yy >= 0 && xx < W && yy < H && g.mask[yy * W + xx]) out.push(yy * W + xx); };
+  if (sp === SANDOK_H) for (let xx = 0; xx < W; xx++) add(xx, y);
+  else if (sp === SANDOK_V) for (let yy = 0; yy < H; yy++) add(x, yy);
+  else if (sp === KALDERO) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) add(x + dx, y + dy);
+  else if (sp === LAHAT) { const k = commonKind(g); for (let j = 0; j < g.cell.length; j++) if (g.mask[j] && g.cell[j] === k) out.push(j); }
+  return out;
+}
+
+// A swap of two specials, or of a Bilao ng Lahat with anything. After the exchange the dragged piece is at b.
+function comboCells(g, a, b, ev) {
+  const sB = g.spec[b], sA = g.spec[a];
+  const { W, H } = g, x = b % W, y = (b / W) | 0, cells = [a, b];
+  const rect = (x0, y0, x1, y1) => { for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) if (xx >= 0 && yy >= 0 && xx < W && yy < H && g.mask[yy * W + xx]) cells.push(yy * W + xx); };
+  ev.push({ type: 'combo', a, b, specs: [sB, sA] });
+  if (sA === LAHAT && sB === LAHAT) { g.spec[a] = g.spec[b] = NONE; rect(0, 0, W - 1, H - 1); return cells; }
+  if (sA === LAHAT || sB === LAHAT) {
+    const lahat = sA === LAHAT ? a : b, other = lahat === a ? b : a, k = g.cell[other], sp = g.spec[other];
+    g.spec[lahat] = NONE;
+    for (let j = 0; j < g.cell.length; j++) if (g.mask[j] && g.cell[j] === k) {
+      if (sp !== NONE) g.spec[j] = sp === KALDERO ? KALDERO : rand(g) < 0.5 ? SANDOK_H : SANDOK_V;
+      cells.push(j);
+    }
+    return cells;
+  }
+  const sandoks = [sA, sB].filter((s) => s === SANDOK_H || s === SANDOK_V).length;
+  g.spec[a] = g.spec[b] = NONE;
+  if (sandoks === 2) { rect(0, y, W - 1, y); rect(x, 0, x, H - 1); }
+  else if (sandoks === 1) { rect(0, y - 1, W - 1, y + 1); rect(x - 1, 0, x + 1, H - 1); }
+  else rect(x - 2, y - 2, x + 2, y + 2);
+  return cells;
+}
 
 export const _t = { wouldRun, shuffle, pickKind, gravity, refill };

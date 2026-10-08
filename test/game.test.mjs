@@ -138,3 +138,76 @@ test('after any move the board is full and still', () => {
     }
   }
 });
+import { SANDOK_H, SANDOK_V, KALDERO } from '../src/game.mjs';
+const stepOf = (r, n = 1) => r.events.filter((e) => e.type === 'step')[n - 1];
+function triggerSpecial(g, i) {
+  for (const [a, b] of findMoves(g)) {
+    const t = clone(g), r = swap(t, a, b);
+    const s = r.events.find((e) => e.type === 'step');
+    if (s && s.fired.some(([j]) => j === i)) return { r, s, a, b };
+  }
+  return null;
+}
+const sorted = (a) => [...a].sort((x, y) => x - y);
+
+test('four in a row makes a Sandok where you swapped; a row Sandok clears its row', () => {
+  const g = setBoard(createGame(L({ w: 6, h: 5 })), ['kpppbu', 'pkbumk', 'bumkbs', 'umkbsu', 'mkbsum']);
+  const s = stepOf(swap(g, 0, 6)); // the puto at 6 moves up to 0: four puto in row 0
+  assert.deepEqual(s.made, [[0, 0, SANDOK_H]]);
+  assert.equal(s.cleared.length, 3);
+  const h = setBoard(createGame(L({ w: 6, h: 5 })), ['kbumkb', 'bumkbs', 'pkpbum', 'kpukbs', 'mkbsum']);
+  h.spec[14] = SANDOK_H; // the puto at (2,2)
+  const s2 = stepOf(swap(h, 13, 19)); // the puto at (1,3) moves up to (1,2): puto at 12,13,14
+  assert.deepEqual(s2.fired, [[14, SANDOK_H]]);
+  assert.deepEqual(sorted(s2.cleared.map((c) => c[0])), [12, 13, 14, 15, 16, 17]);
+});
+
+test('four in a column makes a column Sandok', () => {
+  const g = setBoard(createGame(L({ w: 5, h: 6 })), ['pkbum', 'pubkm', 'kpmus', 'pmkub', 'bkusm', 'mbkus']);
+  // column 0 reads p p k p; the puto at (1,2) moves left into (0,2): column 0 = p p p p
+  const s = stepOf(swap(g, 10, 11));
+  assert.deepEqual(s.made, [[10, 0, SANDOK_V]]);
+});
+
+test('an L makes a Kaldero at the corner; a Kaldero bursts 3x3', () => {
+  const g = setBoard(createGame(L()), ['pkbum', 'pubkm', 'kppsb', 'pbmus', 'bmkub']);
+  const s = stepOf(swap(g, 10, 15)); // column 0 rows 0-2 and row 2 cols 0-2 become puto: an L cornered at 10
+  assert.deepEqual(s.made, [[10, 0, KALDERO]]);
+  assert.equal(s.cleared.length, 4);
+  const h = createGame(L({ w: 7, h: 7, kinds: KAKANIN.slice(0, 4), seed: 3 }));
+  h.spec[24] = KALDERO; // the middle cell (3,3)
+  const t = triggerSpecial(h, 24);
+  assert.ok(t, 'some move sets the Kaldero off');
+  // every cell of the 3x3 is cleared, or became a new special made by the triggering match
+  for (const i of [16, 17, 18, 23, 24, 25, 30, 31, 32]) assert.ok(t.s.cleared.some((c) => c[0] === i) || t.s.made.some((m) => m[0] === i), `cell ${i}`);
+});
+
+test('five in a row makes a Bilao ng Lahat; swapped with a kakanin it clears every one of that kind', () => {
+  const g = setBoard(createGame(L({ w: 6, h: 4 })), ['ppkppb', 'kbpumk', 'bumkbs', 'umkbsu']);
+  const s = stepOf(swap(g, 2, 8)); // the puto at (2,1) moves up: five puto in row 0
+  assert.deepEqual(s.made, [[2, BILAO, LAHAT]]);
+  const h = setBoard(createGame(L({ w: 5, h: 3 })), ['k*bum', 'bkmuk', 'umkbs']);
+  const kut = [...h.cell].map((c, i) => (c === 1 ? i : -1)).filter((i) => i >= 0);
+  const r = swap(h, 1, 0); // drag the Bilao onto the kutsinta
+  assert.equal(r.ok, true);
+  assert.equal(r.events.find((e) => e.type === 'combo').type, 'combo');
+  const cleared = stepOf(r).cleared.map((c) => c[0]);
+  for (const i of kut) assert.ok(cleared.includes(i === 0 ? 1 : i) || cleared.includes(i), `kutsinta at ${i}`);
+});
+
+test('combos: Sandok+Sandok is a cross, Kaldero+Kaldero 5x5, Bilao+Bilao the whole board, Bilao+Sandok turns a kind into Sandoks', () => {
+  const base = () => createGame(L({ w: 7, h: 7, kinds: KAKANIN.slice(0, 5), seed: 11 }));
+  let g = base(); g.spec[24] = SANDOK_H; g.spec[25] = SANDOK_V;
+  let s = stepOf(swap(g, 25, 24)); // the dragged Sandok lands on 24 = (3,3)
+  for (let k = 0; k < 7; k++) { assert.ok(s.cleared.some((c) => c[0] === 21 + k), `row cell ${k}`); assert.ok(s.cleared.some((c) => c[0] === 3 + 7 * k), `col cell ${k}`); }
+  g = base(); g.spec[24] = KALDERO; g.spec[25] = KALDERO;
+  s = stepOf(swap(g, 25, 24));
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) assert.ok(s.cleared.some((c) => c[0] === 24 + dy * 7 + dx));
+  g = base(); g.cell[24] = BILAO; g.spec[24] = LAHAT; g.cell[25] = BILAO; g.spec[25] = LAHAT;
+  s = stepOf(swap(g, 25, 24));
+  assert.equal(s.cleared.length, 49);
+  g = base(); const k = g.cell[25]; g.spec[25] = SANDOK_H; g.cell[24] = BILAO; g.spec[24] = LAHAT;
+  const before = [...g.cell].filter((c) => c === k).length;
+  s = stepOf(swap(g, 24, 25));
+  assert.ok(s.fired.length >= before, 'every piece of that kind went off as a Sandok');
+});
