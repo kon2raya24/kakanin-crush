@@ -49,6 +49,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #2a1a12; col
 .meter { height: 12px; background: var(--woodedge); border-radius: 6px; overflow: hidden; position: relative; }
 .meter i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #ffd23f, #ff9f43); border-radius: 6px; }
 .meter s { position: absolute; top: -3px; width: 2px; height: 18px; background: #3a2210; }
+#h-boosts { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.boost { pointer-events: auto; position: relative; min-height: 44px; padding: 2px 6px; font-size: 22px; background: linear-gradient(180deg, #fff2c8, #e8c890); color: #3a2210; border-color: var(--woodedge); }
+.boost small { position: absolute; right: 3px; bottom: 1px; font: 900 12px/1 "Barlow Condensed", sans-serif; }
+.boost:disabled { opacity: .4; cursor: default; }
+.boost.on { outline: 3px solid #ff8ae2; background: linear-gradient(180deg, #ffe680, #ffb02e); }
+body.picking #view { cursor: crosshair; }
 .stars { text-align: center; color: var(--orange); font-size: 22px; letter-spacing: 4px; }
 /* desktop: signboards left and right of the stall; phone portrait: a strip above the board */
 @media (min-aspect-ratio: 9/10) {
@@ -61,6 +67,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #2a1a12; col
   .sign { min-width: 0; padding: 3px 6px 5px; } .sign h4 { font-size: 13px; margin-bottom: 3px; }
   .goal { font-size: 15px; } .goal img { width: 26px; height: 26px; }
   #h-moves { font-size: 28px; }
+  #sign-boost { position: fixed; left: 8px; bottom: max(12px, env(safe-area-inset-bottom)); } #h-boosts { grid-template-columns: repeat(4, 1fr); } .boost { min-height: 40px; font-size: 18px; }
   #sign-stars { min-width: 84px; } #sign-stars .stars { font-size: 13px; letter-spacing: 1px; } .meter { height: 8px; } /* a slim star meter on phones */
 }
 #callout { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font: italic 900 clamp(40px, 9vw, 86px)/1 "Barlow Condensed", sans-serif; letter-spacing: .04em; color: #fff4c8; -webkit-text-stroke: 3px #7a2a0c; text-shadow: 0 6px 0 #7a2a0c, 0 0 30px rgba(255,200,80,.6); pointer-events: none; white-space: nowrap; }
@@ -82,6 +89,13 @@ h2 { margin: 0; font: italic 900 clamp(30px, 7vw, 48px)/1 "Barlow Condensed", sa
 .lvl { width: 64px; height: 64px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font: italic 900 24px/1 "Barlow Condensed", sans-serif; }
 .lvl small { font-size: 12px; color: var(--gold); letter-spacing: 1px; }
 .lvl:disabled { opacity: .4; cursor: default; }
+.road { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; padding: 10px; max-width: 980px; background: repeating-linear-gradient(90deg, transparent 0 22px, rgba(255,240,200,.35) 22px 40px) center / 100% 4px no-repeat; }
+.town { width: 220px; min-height: 150px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: left; border-width: 3px; background: linear-gradient(160deg, var(--a), var(--b)); color: #2a1608; box-shadow: 0 6px 0 rgba(0,0,0,.35); }
+.town b { font: italic 900 26px/1 "Barlow Condensed", sans-serif; }
+.town i { font-style: normal; font-weight: 700; opacity: .8; }
+.town em { margin-top: auto; font-style: normal; font-weight: 800; }
+.town:disabled { filter: grayscale(.7) brightness(.7); cursor: default; }
+.town.golden { --a: #ffe2a0; --b: #f0a860; } .town.noon { --a: #e8f4ff; --b: #9cc8f0; } .town.dusk { --a: #f0c0d8; --b: #9a7ab8; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .big-stars { font-size: 56px; letter-spacing: 6px; min-height: 64px; }
 .big-stars .star { display: inline-block; color: rgba(255,255,255,.18); transform: scale(.8); transition: color .2s; }
@@ -107,6 +121,7 @@ h2 { margin: 0; font: italic 900 clamp(30px, 7vw, 48px)/1 "Barlow Condensed", sa
       <div class="sign"><h4>GALAW</h4><div id="h-moves">0</div></div>
     </div>
     <div class="signs" id="signs-r">
+      <div class="sign" id="sign-boost"><h4>PAMPALAKAS</h4><div id="h-boosts"></div></div>
       <div class="sign" id="sign-stars"><h4>BITUIN</h4><div class="stars" id="h-stars">☆☆☆</div><div class="meter"><i id="h-meter"></i><s id="h-s2"></s><s id="h-s3"></s></div></div>
     </div>
     <div id="callout"></div>
@@ -122,11 +137,18 @@ h2 { margin: 0; font: italic 900 clamp(30px, 7vw, 48px)/1 "Barlow Condensed", sa
     <p class="tag" id="title-stars"></p>
   </section>
 
-  <section class="screen" id="levels" hidden>
-    <h2>San Roque</h2>
-    <p class="tag">Sari-sari street, golden hour · <span id="town-stars"></span></p>
-    <div class="grid" id="grid"></div>
+  <section class="screen" id="map" hidden>
+    <h2>Ang Biyahe ni Lola</h2>
+    <p class="tag">Dalhin ang bilao ni Lola Pacing sa bawat bayan · <span id="map-stars"></span></p>
+    <div class="road" id="towns"></div>
     <div class="row"><button type="button" class="menu">Menu</button></div>
+  </section>
+
+  <section class="screen" id="levels" hidden>
+    <h2 id="town-name"></h2>
+    <p class="tag"><span id="town-place"></span> · <span id="town-stars"></span></p>
+    <div class="grid" id="grid"></div>
+    <div class="row"><button type="button" class="to-map">◀ Mapa</button><button type="button" class="menu">Menu</button></div>
   </section>
 
   <section class="screen" id="intro" hidden>

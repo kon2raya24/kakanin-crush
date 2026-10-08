@@ -1,10 +1,10 @@
 // The page: screens, the HUD, input (drag, tap-tap, keys), the loop, sound and saves. The rules live in
 // game.mjs and only change through swap(); the view animates their events and ignores input until the
 // board is still again.
-import { createGame, swap, hint, adjacent, findMoves, KAKANIN } from './game.mjs';
-import { LEVELS, TOWN } from './levels.mjs';
+import { createGame, swap, useBooster, hint, adjacent, findMoves, KAKANIN, GATA, ASUKAL, KAHON, LANGGAM } from './game.mjs';
+import { LEVELS, TOWNS, townOf } from './levels.mjs';
 import { chooseMove } from './bot.mjs';
-import { load, save, record, isUnlocked, totalStars, fresh } from './progress.mjs';
+import { load, save, record, isUnlocked, totalStars, fresh, townOpen, starsToOpen, grant } from './progress.mjs';
 import { createAudio } from './audio.mjs';
 
 const Q = new URLSearchParams(location.search);
@@ -40,8 +40,9 @@ async function makeView() {
 
 // ---------- state ----------
 let mode = 'title', game = null, levelIx = 0, sel = -1, idle = 0, icons = {}, busy = false;
-const SCREENS = ['title', 'levels', 'intro', 'pause', 'result'];
+const SCREENS = ['title', 'map', 'levels', 'intro', 'pause', 'result'];
 function show(name) {
+  if (name !== null && picking) pickMode(null); // leaving the board (pause, menus) ends a booster pick
   for (const id of SCREENS) $(id).hidden = id !== name;
   $('hud').hidden = !(name === null || name === 'pause');
   $('help').hidden = name === null;
@@ -54,14 +55,18 @@ function say(text) {
   if (lola) lola.say(); const b = $('bubble'); b.innerHTML = '<b>Lola:</b> '; b.append(text); b.hidden = false; clearTimeout(say.t); say.t = setTimeout(() => { b.hidden = true; }, 3800); }
 
 // ---------- HUD ----------
-const goalText = (q) => (q.type === 'collect' ? `${KAKANIN[q.kind]}` : q.type === 'latik' ? 'latik' : 'puntos');
+// each goal's icon (a rendered piece) and its words
+const goalIcon = (q) => (q.type === 'collect' || q.type === 'deliver' ? q.kind : q.type === 'kahon' ? KAHON : q.type === 'langgam' ? LANGGAM : -1);
+const goalLeft = (q) => (q.type === 'langgam' ? q.left : Math.max(0, q.need - q.got));
+const INGNAME = { [GATA]: 'gata', [ASUKAL]: 'asukal' };
 function drawGoals() {
   const box = $('h-goals'); box.replaceChildren();
   for (const q of game.goals) {
     const row = document.createElement('div'); row.className = 'goal' + (q.got >= q.need ? ' done' : '');
-    if (q.type === 'collect' && icons[q.kind]) { const im = new Image(); im.src = icons[q.kind]; im.alt = KAKANIN[q.kind]; row.append(im); }
-    const left = Math.max(0, q.need - q.got);
-    row.append(q.type === 'score' ? `${Math.min(q.got, q.need)} / ${q.need}` : q.type === 'latik' ? `latik × ${left}` : `× ${left}`);
+    const ic = goalIcon(q);
+    if (icons[ic]) { const im = new Image(); im.src = icons[ic]; im.alt = KAKANIN[ic] || INGNAME[ic] || q.type; row.append(im); }
+    const left = goalLeft(q);
+    row.append(q.type === 'score' ? `${Math.min(q.got, q.need)} / ${q.need}` : q.type === 'latik' || q.type === 'dahon' ? `${q.type} × ${left}` : `× ${left}`);
     box.append(row);
   }
 }
@@ -69,7 +74,8 @@ function hud(prev) {
   const lv = LEVELS[levelIx];
   $('h-score').querySelector('b').textContent = game.score.toLocaleString('en-PH');
   $('h-best').querySelector('b').textContent = Math.max(data.best[lv.id] || 0, game.score).toLocaleString('en-PH');
-  $('h-level').querySelector('b').textContent = `${TOWN.name.toUpperCase()} ${levelIx + 1}`;
+  const town = townOf(lv.id);
+  $('h-level').querySelector('b').textContent = `${town.name.toUpperCase()} ${town.levels.indexOf(lv.id) + 1}`;
   $('h-level').querySelector('em').textContent = lv.name;
   $('h-moves').textContent = game.moves; $('h-moves').classList.toggle('low', game.moves <= 5);
   const top = lv.stars[2] * 1.1; $('h-meter').style.width = `${Math.min(100, (game.score / top) * 100)}%`;
@@ -90,39 +96,65 @@ function beat(b) {
 
 // ---------- flow ----------
 function titleScreen() { mode = 'title'; game = null; busy = false; $('title-stars').textContent = totalStars(data) ? `★ ${totalStars(data)} / ${LEVELS.length * 3}` : ''; show('title'); demo(); }
-function levelsScreen() {
-  mode = 'levels'; game = null; busy = false;
-  const grid = $('grid'); grid.replaceChildren();
-  LEVELS.forEach((lv, k) => {
+// the map: one card per town along the road; a closed one says what it still needs
+const townStars = (t) => TOWNS[t].levels.reduce((a, id) => a + (data.stars[id] || 0), 0);
+function mapScreen() {
+  mode = 'map'; game = null; busy = false;
+  const road = $('towns'); road.replaceChildren();
+  TOWNS.forEach((town, t) => {
+    const open = townOpen(data, t), b = document.createElement('button'); b.type = 'button'; b.className = `town ${town.theme}`; b.disabled = !open;
+    const prev = TOWNS[t - 1], need = starsToOpen(data, t), cleared = prev && (data.stars[prev.levels.at(-1)] || 0) > 0;
+    const lock = !prev ? '' : [cleared ? '' : `tapusin ang ${prev.name} ${prev.levels.length}`, need ? `${need} pang ★` : ''].filter(Boolean).join(' at ');
+    b.innerHTML = `<small>BAYAN ${t + 1}</small><b></b><i></i><em>${open ? `★ ${townStars(t)} / ${town.levels.length * 3}` : `🔒 Kailangan: ${lock}`}</em>`;
+    b.querySelector('b').textContent = town.name; b.querySelector('i').textContent = town.place;
+    b.setAttribute('aria-label', `${town.name}${open ? '' : `, sarado: ${lock}`}`);
+    b.onclick = () => levelsScreen(t); road.append(b);
+  });
+  $('map-stars').textContent = `★ ${totalStars(data)} / ${LEVELS.length * 3}`;
+  show('map');
+}
+let townIx = 0;
+function levelsScreen(t = townIx) {
+  townIx = t; mode = 'levels'; game = null; busy = false;
+  const town = TOWNS[t], grid = $('grid'); grid.replaceChildren();
+  town.levels.forEach((id, n) => {
+    const k = LEVELS.findIndex((l) => l.id === id), lv = LEVELS[k];
     const b = document.createElement('button'); b.type = 'button'; b.className = 'lvl'; b.disabled = !isUnlocked(data, k);
-    b.innerHTML = `${k + 1}<small>${'★'.repeat(data.stars[lv.id] || 0)}</small>`; b.setAttribute('aria-label', `Level ${k + 1}, ${lv.name}`);
+    b.innerHTML = `${n + 1}<small>${'★'.repeat(data.stars[lv.id] || 0)}</small>`; b.setAttribute('aria-label', `Level ${n + 1}, ${lv.name}`);
     b.onclick = () => intro(k); grid.append(b);
   });
-  $('town-stars').textContent = `★ ${totalStars(data)} / ${LEVELS.length * 3}`;
+  $('town-name').textContent = town.name; $('town-place').textContent = town.place;
+  $('town-stars').textContent = `★ ${townStars(t)} / ${town.levels.length * 3}`;
   show('levels');
 }
 function intro(k) {
-  levelIx = k; const lv = LEVELS[k]; mode = 'intro';
-  $('intro-name').textContent = `${k + 1}. ${lv.name}`;
-  $('intro-goals').textContent = 'Kailangan: ' + lv.goals.map((q) => (q.type === 'collect' ? `${q.n} ${q.kind}` : q.type === 'latik' ? 'linisin ang lahat ng latik' : `${q.n.toLocaleString('en-PH')} puntos`)).join(' · ') + ` — sa ${lv.moves} galaw`;
+  levelIx = k; const lv = LEVELS[k]; mode = 'intro'; townIx = TOWNS.indexOf(townOf(lv.id));
+  $('intro-name').textContent = `${TOWNS[townIx].levels.indexOf(lv.id) + 1}. ${lv.name}`;
+  const said = { latik: 'linisin ang lahat ng latik', dahon: 'buksan ang lahat ng dahon', kahon: 'basagin ang lahat ng kahon', langgam: 'itaboy ang lahat ng langgam' };
+  $('intro-goals').textContent = 'Kailangan: ' + lv.goals.map((q) => (q.type === 'collect' || q.type === 'deliver' ? `${q.n} ${q.kind}` : said[q.type] || `${q.n.toLocaleString('en-PH')} puntos`)).join(' · ') + ` — sa ${lv.moves} galaw`;
   $('intro-tip').textContent = lv.tip ? `Lola: "${lv.tip}"` : '';
   show('intro');
 }
 function start(k = levelIx) {
   levelIx = k; A.start(); A.music(true);
+  townIx = TOWNS.indexOf(townOf(LEVELS[k].id));
   const lv = LEVELS[k], seed = Q.get('seed') ? Number(Q.get('seed')) : (lv.seed * 7919 + Math.floor(Math.random() * 1e6)) >>> 0;
-  game = createGame(lv, seed); sel = -1; cursor = -1; idle = 0; busy = false;
-  view.setGame(game); view.select(-1); view.showHint(null);
-  mode = 'play'; show(null); hud(); beat({ type: 'go' });
+  game = createGame(lv, seed); sel = -1; cursor = -1; idle = 0; busy = false; picking = null;
+  view.setTheme(townOf(lv.id).theme); view.setGame(game); view.select(-1); view.showHint(null);
+  mode = 'play'; show(null); hud(); drawBoosts(); beat({ type: 'go' });
   if (lv.tip) say(lv.tip);
   hintOnce('swap', 'I-drag ang kakanin papunta sa katabi, o i-tap ang dalawa.');
 }
 async function doSwap(a, b) {
   if (mode !== 'play' || busy || view.busy() || !adjacent(game, a, b)) return;
   busy = true; sel = -1; view.select(-1); view.showHint(null); idle = 0;
-  const g0 = game, prev = game.goals.map((q) => q.got);
-  const r = swap(game, a, b);
+  const prev = game.goals.map((q) => q.got), r = swap(game, a, b);
   if (!r.ok) A.event({ type: 'tsk' });
+  await playOut(r, prev);
+}
+// play a move's (or a booster's) events out, then the HUD and the level's end
+async function playOut(r, prev) {
+  const g0 = game;
   await view.play(r.events, game, (b) => { if (game === g0) beat(b); }); // a move you've left makes no more sound
   if (game !== g0) return; // the player left this game (restart, levels, menu) while it animated
   hud(prev);
@@ -134,7 +166,8 @@ async function doSwap(a, b) {
 }
 function finish(end) {
   const lv = LEVELS[levelIx];
-  if (end.won) { data = record(data, lv.id, end.stars, end.score); persist(); }
+  let given = [];
+  if (end.won) { const r = grant(record(data, lv.id, end.stars, end.score)); data = r.data; given = r.given; persist(); }
   A.music(false);
   const g0 = game;
   setTimeout(() => {
@@ -148,6 +181,7 @@ function finish(end) {
     $('result-lola').textContent = `Lola: "${pick(end.won ? LOLA.win : LOLA.lose)}"`;
     $('next').hidden = !end.won || levelIx >= LEVELS.length - 1;
     show('result');
+    if (given.length) toast(`Bagong pampalakas: ${given.map((k) => BOOSTS[k][0] + ' ' + k).join(', ')}!`, 4000);
   }, 700 / FAST);
 }
 function pause() { if (mode === 'play') { mode = 'pause'; show('pause'); } }
@@ -167,6 +201,7 @@ stage.addEventListener('pointermove', (e) => {
   const dx = e.clientX - down.x, dy = e.clientY - down.y;
   if (Math.hypot(dx, dy) < 22) return;
   down.moved = true;
+  if (picking) return; // picking a booster's cell takes a tap; a drag does nothing
   const W = game.W, j = Math.abs(dx) > Math.abs(dy) ? down.i + Math.sign(dx) : down.i + Math.sign(dy) * W;
   if (adjacent(game, down.i, j)) doSwap(down.i, j);
 });
@@ -174,6 +209,7 @@ stage.addEventListener('pointerup', () => {
   if (!down) return;
   const { i, moved } = down; down = null;
   if (moved || mode !== 'play') return;
+  if (picking) { boost(picking, i); return; }
   if (sel >= 0 && adjacent(game, sel, i)) { doSwap(sel, i); return; }
   sel = sel === i ? -1 : i; view.select(sel); A.event({ type: 'select' });
 });
@@ -182,6 +218,7 @@ let cursor = -1;
 // the cell nearest i that is part of the bilao (the centre of a shaped board can be a hole)
 const firstCell = (i) => { if (game.mask[i]) return i; let best = -1; for (let j = 0; j < game.cell.length; j++) if (game.mask[j] && (best < 0 || Math.abs(j - i) < Math.abs(best - i))) best = j; return best; };
 addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && picking) { pickMode(null); return; }
   if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { if (mode === 'play') pause(); else if (mode === 'pause') resume(); return; }
   if (mode !== 'play' || !game) return;
   const W = game.W, H = game.H, d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -W, ArrowDown: W }[e.key];
@@ -200,30 +237,60 @@ addEventListener('keydown', (e) => {
     cursor = to; view.select(cursor);
   } else if (e.key === ' ' || e.key === 'Enter') {
     e.preventDefault(); if (cursor < 0) return;
+    if (picking) { boost(picking, cursor); return; }
     sel = sel === cursor ? -1 : cursor; view.select(sel >= 0 ? sel : cursor); A.event({ type: 'select' });
   }
 });
+
+// ---------- boosters: Pamaypay and Merienda act at once; the Sandok and the Siyanse need a cell ----------
+const BOOSTS = { pamaypay: ['🪭', 'Pamaypay: haluin ang bilao'], sandok: ['🥄', 'Sandok: gawing Sandok ang isang kakanin'], merienda: ['🍌', 'Merienda: +5 galaw'], siyanse: ['🍳', 'Siyanse: tanggalin ang isang piraso'] };
+let picking = null;
+function drawBoosts() {
+  const box = $('h-boosts'); box.replaceChildren();
+  for (const [kind, [icon, label]] of Object.entries(BOOSTS)) {
+    const n = data.boosters[kind] || 0, b = document.createElement('button');
+    b.type = 'button'; b.className = 'boost' + (picking === kind ? ' on' : ''); b.disabled = !n; b.dataset.kind = kind;
+    b.setAttribute('aria-label', `${label} (${n})`); b.title = label; b.innerHTML = `${icon}<small>${n}</small>`;
+    b.onclick = () => { if (kind === 'sandok' || kind === 'siyanse') pickMode(picking === kind ? null : kind); else boost(kind); };
+    box.append(b);
+  }
+}
+function pickMode(kind) {
+  if (kind && (mode !== 'play' || busy || view.busy())) return;
+  picking = kind; drawBoosts(); document.body.classList.toggle('picking', !!kind);
+  if (kind) toast(`${BOOSTS[kind][1]} — pumili ng piraso (Esc para kanselahin)`, 3000);
+}
+async function boost(kind, target) {
+  if (mode !== 'play' || busy || view.busy() || !(data.boosters[kind] > 0)) return;
+  const prev = game.goals.map((q) => q.got), r = useBooster(game, kind, target);
+  if (!r.ok) { A.event({ type: 'tsk' }); toast('Hindi puwede diyan, apo.'); return; }
+  data.boosters = { ...data.boosters, [kind]: data.boosters[kind] - 1 }; persist();
+  picking = null; document.body.classList.remove('picking'); drawBoosts();
+  busy = true; sel = -1; view.select(-1); view.showHint(null); idle = 0;
+  await playOut(r, prev);
+}
 
 // ---------- buttons ----------
 function labels() { for (const b of document.querySelectorAll('.sound')) b.textContent = data.muted ? '🔇' : '🔊'; }
 for (const b of document.querySelectorAll('.sound')) b.onclick = () => { A.start(); data.muted = !data.muted; A.setMuted(data.muted); persist(); labels(); };
 labels();
-$('play').onclick = () => { A.start(); levelsScreen(); };
+$('play').onclick = () => { A.start(); mapScreen(); };
 $('go').onclick = () => start(levelIx);
 $('resume').onclick = resume;
 $('restart').onclick = () => start(levelIx);
 $('again').onclick = () => start(levelIx);
-$('next').onclick = () => intro(levelIx + 1);
+$('next').onclick = () => (isUnlocked(data, levelIx + 1) ? intro(levelIx + 1) : mapScreen()); // a closed town: the map shows what it needs
 $('pause-btn').onclick = pause;
 $('hint-btn').onclick = () => { if (mode === 'play' && game && !busy && !view.busy()) view.showHint(hint(game)); }; // a hint for the board you'll play, not one still moving
-for (const b of document.querySelectorAll('.to-levels')) b.onclick = levelsScreen;
+for (const b of document.querySelectorAll('.to-levels')) b.onclick = () => levelsScreen();
+for (const b of document.querySelectorAll('.to-map')) b.onclick = mapScreen;
 document.addEventListener('click', (e) => { if (e.target.closest('button')) A.event({ type: 'click' }); });
 for (const b of document.querySelectorAll('.menu')) b.onclick = titleScreen;
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 
 // ---------- the title demo: the bot plays level 1 behind the title ----------
 let demoT = 0;
-function demo() { const g2 = createGame(LEVELS[0], (Math.random() * 1e9) >>> 0); game = g2; view.setGame(g2); }
+function demo() { const g2 = createGame(LEVELS[0], (Math.random() * 1e9) >>> 0); game = g2; view.setTheme('golden'); view.setGame(g2); }
 async function demoMove() {
   if (!game || busy || view.busy()) return;
   if (game.phase !== 'play') { demo(); return; }
@@ -249,4 +316,4 @@ if ('serviceWorker' in navigator && !TEST) navigator.serviceWorker.register('sw.
 const startAt = Q.get('level') ? LEVELS.findIndex((l) => l.id === Q.get('level')) : -1;
 if (startAt >= 0) start(startAt); else titleScreen();
 requestAnimationFrame(frame);
-if (TEST) window.__kc = { get game() { return game; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), beats, audioStats: () => A.stats(), audio: A, get lola() { return lola && { state: lola.state, history: lola.history, box: () => view.screenBox(lola.root()) }; }, get cursor() { return cursor; }, LEVELS, busy: () => busy || view.busy() };
+if (TEST) window.__kc = { get game() { return game; }, win(id, stars) { data = grant(record(data, id, stars, 1000)).data; }, get data() { return data; }, mapScreen, grant(kind, n = 3) { data.boosters = { ...data.boosters, [kind]: n }; if (mode === 'play') drawBoosts(); }, get picking() { return picking; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), beats, audioStats: () => A.stats(), audio: A, get lola() { return lola && { state: lola.state, history: lola.history, box: () => view.screenBox(lola.root()) }; }, get cursor() { return cursor; }, LEVELS, busy: () => busy || view.busy() };

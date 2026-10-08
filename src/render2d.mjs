@@ -1,9 +1,9 @@
 // The 2D fallback (no WebGL, or ?flat=1): the same board as flat glossy discs on a woven tray. It has the
 // view's interface, plays events as quick fades, and checks itself against the state after each move.
-import { EMPTY, BILAO, SANDOK_H, SANDOK_V, KALDERO, LAHAT, KAKANIN } from './game.mjs';
+import { EMPTY, BILAO, SANDOK_H, SANDOK_V, KALDERO, LAHAT, KAKANIN, KAHON } from './game.mjs';
 import { KCOLOR } from './kakanin3d.mjs';
 
-const LABEL = ['P', 'K', 'S', 'B', 'U', 'Su', '★'];
+const LABEL = ['P', 'K', 'S', 'B', 'U', 'Su', '★', 'G', 'A', '', '••'];
 
 export function createFlat(canvas) {
   const ctx = canvas.getContext('2d');
@@ -21,6 +21,7 @@ export function createFlat(canvas) {
       ctx.fillStyle = ((i % g.W) + ((i / g.W) | 0)) % 2 ? '#3d8236' : '#4a9440'; ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
       if (g.latik[i]) { ctx.fillStyle = `rgba(122,62,20,${0.45 + g.latik[i] * 0.2})`; ctx.fillRect(x + 2, y + 2, cell - 4, cell - 4); }
       const k = g.cell[i]; if (k === EMPTY) continue;
+      if (k === KAHON) { ctx.fillStyle = '#a7743f'; ctx.fillRect(x + 4, y + 4, cell - 8, cell - 8); ctx.fillStyle = '#fff8e1'; ctx.font = `800 ${cell * 0.3}px "Baloo 2", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(g.crate[i], x + cell / 2, y + cell / 2 + 1); continue; }
       const grd = ctx.createRadialGradient(x + cell * 0.38, y + cell * 0.35, cell * 0.05, x + cell / 2, y + cell / 2, cell * 0.42);
       grd.addColorStop(0, '#ffffff'); grd.addColorStop(0.25, KCOLOR[k]); grd.addColorStop(1, '#00000055');
       ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(x + cell / 2, y + cell / 2, cell * 0.38, 0, Math.PI * 2); ctx.fill();
@@ -29,6 +30,7 @@ export function createFlat(canvas) {
       if (sp === SANDOK_H || sp === SANDOK_V) { ctx.strokeStyle = '#b07a3e'; ctx.lineWidth = 3; ctx.beginPath(); if (sp === SANDOK_H) { ctx.moveTo(x + 6, y + cell / 2); ctx.lineTo(x + cell - 6, y + cell / 2); } else { ctx.moveTo(x + cell / 2, y + 6); ctx.lineTo(x + cell / 2, y + cell - 6); } ctx.stroke(); }
       if (sp === KALDERO) { ctx.strokeStyle = '#3a3a40'; ctx.lineWidth = 3; ctx.strokeRect(x + 5, y + 5, cell - 10, cell - 10); }
       if (sp === LAHAT || k === BILAO) { ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x + cell / 2, y + cell / 2, cell * 0.44, 0, Math.PI * 2); ctx.stroke(); }
+      if (g.wrap[i]) { ctx.strokeStyle = '#2f7a2a'; ctx.lineWidth = cell * 0.12; ctx.beginPath(); ctx.arc(x + cell / 2, y + cell / 2, cell * 0.36, 0, Math.PI * 2); ctx.stroke(); }
       if (i === selected || (hintPair && hintPair.includes(i))) { ctx.strokeStyle = '#fff3a0'; ctx.lineWidth = 3; ctx.strokeRect(x + 2, y + 2, cell - 4, cell - 4); }
     }
   }
@@ -42,7 +44,9 @@ export function createFlat(canvas) {
         if (e.step >= 2) callout(['', '', 'Sarap!', 'Linamnam!', 'Panalo!', 'Ubos-Benta!'][Math.min(e.step, 5)], e.step);
         for (const [i, sp] of e.fired) onBeat({ type: 'fire', i, spec: sp });
         onBeat({ type: 'pop', step: e.step, cleared: e.cleared, latik: e.latik, made: e.made });
+        if (e.hits.length) onBeat({ type: 'hit', hits: e.hits });
         onBeat({ type: 'land', count: e.falls.length + e.spawns.length });
+        if (e.delivered.length) onBeat({ type: 'deliver', delivered: e.delivered });
       }
       busyT = 0.25; await new Promise((r) => setTimeout(r, 250));
     },
@@ -50,8 +54,8 @@ export function createFlat(canvas) {
     select(i) { selected = i; }, showHint(p) { hintPair = p; },
     update(dt) { busyT = Math.max(0, busyT - dt); draw(); },
     resize, busy: () => busyT > 0, hintShown: () => hintPair,
-    icons() { const out = {}; for (let k = 0; k <= 6; k++) { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = KCOLOR[k]; x.beginPath(); x.arc(32, 32, 26, 0, Math.PI * 2); x.fill(); out[k] = c.toDataURL(); } return out; },
-    dump: () => ({ kinds: Array.from(g.cell), specs: Array.from(g.spec) }),
-    onCallout(fn) { callout = fn; }, level: 0, setSpeed() {},
+    icons() { const out = {}; for (let k = 0; k <= 10; k++) { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = KCOLOR[k]; x.beginPath(); x.arc(32, 32, 26, 0, Math.PI * 2); x.fill(); out[k] = c.toDataURL(); } return out; },
+    dump: () => ({ kinds: Array.from(g.cell), specs: Array.from(g.spec), wraps: Array.from(g.wrap) }),
+    onCallout(fn) { callout = fn; }, level: 0, setSpeed() {}, setTheme() {},
   };
 }

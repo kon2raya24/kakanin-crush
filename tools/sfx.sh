@@ -21,6 +21,8 @@ for n in 1 2 3; do mp3 "$CAS/chips-handle-$n.ogg" handle$n; done
 mp3 "$CAS/card-shuffle.ogg" shuffle
 for n in 0 1 2; do mp3 "$IM/impactBell_heavy_00$n.ogg" kaldero$n; mp3 "$IM/footstep_snow_00$n.ogg" latik$n; done
 for n in 1 2 3; do mp3 "$RPG/drawKnife$n.ogg" sandok$n; done
+for n in 1 2 3; do mp3 "$RPG/cloth$n.ogg" cloth$n; done
+for n in 0 1 2; do mp3 "$IM/impactPlank_medium_00$n.ogg" plank$n; mp3 "$IM/footstep_grass_00$n.ogg" rustle$n; mp3 "$IM/impactSoft_medium_00$n.ogg" thud$n; done
 mp3 "$RPG/handleCoins.ogg" coin1; mp3 "$RPG/handleCoins2.ogg" coin2
 mp3 "$JG/jingles_PIZZI02.ogg" win; mp3 "$JG/jingles_PIZZI01.ogg" lose; mp3 "$JG/jingles_PIZZI00.ogg" star3; mp3 "$JG/jingles_PIZZI15.ogg" go
 cp "$(find $K/kenney_interface-sounds -name 'License.txt' | head -1)" assets/sfx/LICENSE-kenney-interface.txt

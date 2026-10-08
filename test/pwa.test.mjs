@@ -8,6 +8,7 @@ const assets = JSON.parse(sw.match(/const ASSETS = (\[[\s\S]*?\]);/)[1].replace(
 test('every module, vendor file, env asset and icon is precached, and every precached file exists', () => {
   for (const f of readdirSync(new URL('../src', import.meta.url)).filter((f) => f.endsWith('.mjs'))) assert.ok(assets.includes(`src/${f}`), `src/${f}`);
   for (const f of readdirSync(new URL('../src/vendor', import.meta.url)).filter((f) => f.endsWith('.js'))) assert.ok(assets.includes(`src/vendor/${f}`), `src/vendor/${f}`);
+  for (const f of readdirSync(new URL('../src/towns', import.meta.url)).filter((f) => f.endsWith('.mjs'))) assert.ok(assets.includes(`src/towns/${f}`), `src/towns/${f}`);
   for (const f of readdirSync(new URL('../assets/sfx', import.meta.url)).filter((f) => f.endsWith('.mp3'))) assert.ok(assets.includes(`assets/sfx/${f}`), `assets/sfx/${f}`);
   for (const d of ['sky', 'tex', 'props']) for (const f of readdirSync(new URL(`../assets/env/${d}`, import.meta.url))) assert.ok(assets.includes(`assets/env/${d}/${f}`), `assets/env/${d}/${f}`);
   const manifest = JSON.parse(readFileSync(new URL('../manifest.webmanifest', import.meta.url), 'utf8'));

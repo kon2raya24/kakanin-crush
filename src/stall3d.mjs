@@ -10,10 +10,16 @@ import { makePiece, MATS, lathe2 } from './kakanin3d.mjs';
 
 const shadow = (o) => { o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); return o; };
 
+export const THEMES = {
+  golden: { sky: 'bd_golden', sunC: '#ffbf80', sunI: 3.0, sunP: [-8, 10, 6], hemi: ['#ffe6c4', '#6a4a30', 0.6], fog: ['#e6b88c', 30, 80], env: 0.9, exp: 0.9, lamps: 1, grade: 'golden' },
+  noon: { sky: 'bd_noon', sunC: '#fff2dc', sunI: 2.5, sunP: [3, 14, 5], hemi: ['#e8f0ff', '#8a7a60', 0.75], fog: ['#e4e0d4', 40, 95], env: 0.75, exp: 0.8, lamps: 0.3, grade: 'noon' },
+  dusk: { sky: 'bd_dusk', sunC: '#ff7a48', sunI: 1.5, sunP: [-12, 5, 4], hemi: ['#9a90c8', '#4a3434', 0.5], fog: ['#a88a9a', 25, 75], env: 0.45, exp: 0.95, lamps: 1.6, grade: 'dusk' },
+};
+
 export function buildStall(scene, renderer, { base = 'assets/env/' } = {}) {
   scene.background = new THREE.Color('#e9b98a');
   scene.fog = new THREE.Fog('#e6b88c', 30, 80);
-  scene.add(new THREE.HemisphereLight('#ffe6c4', '#6a4a30', 0.6));
+  const hemi = new THREE.HemisphereLight('#ffe6c4', '#6a4a30', 0.6); scene.add(hemi);
   const sun = new THREE.DirectionalLight('#ffbf80', 3.0);
   sun.position.set(-8, 10, 6); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 16, bottom: -16, far: 70 }); sun.shadow.bias = -0.0005; sun.shadow.radius = 4;
@@ -21,11 +27,11 @@ export function buildStall(scene, renderer, { base = 'assets/env/' } = {}) {
   const rim = new THREE.DirectionalLight('#a8c8ff', 0.8); rim.position.set(7, 5, -7); scene.add(rim);
 
   const pmrem = new THREE.PMREMGenerator(renderer);
-  new HDRLoader().loadAsync(base + 'sky/kloppenheim_06_puresky.hdr').then((t) => { t.mapping = THREE.EquirectangularReflectionMapping; scene.environment = pmrem.fromEquirectangular(t).texture; scene.environmentRotation = new THREE.Euler(0, 2.2, 0); scene.environmentIntensity = 0.9; t.dispose(); }).catch(() => { /* the lights alone */ });
+  new HDRLoader().loadAsync(base + 'sky/kloppenheim_06_puresky.hdr').then((t) => { t.mapping = THREE.EquirectangularReflectionMapping; scene.environment = pmrem.fromEquirectangular(t).texture; scene.environmentRotation = new THREE.Euler(0, 2.2, 0); t.dispose(); }).catch(() => { /* the lights alone */ });
   const tl = new THREE.TextureLoader();
   const scan = (id, rep) => { const d = tl.load(`${base}tex/${id}_diff.jpg`), n = tl.load(`${base}tex/${id}_nor.jpg`); d.colorSpace = THREE.SRGBColorSpace; for (const t of [d, n]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...rep); t.anisotropy = 8; } return { map: d, normalMap: n }; };
-  { const t = tl.load(base + 'sky/bd_golden.jpg'); t.colorSpace = THREE.SRGBColorSpace;
-    const sky = new THREE.Mesh(new THREE.CylinderGeometry(70, 70, 50, 48, 1, true, Math.PI * 0.62, Math.PI * 0.76), new THREE.MeshBasicMaterial({ map: t, side: THREE.BackSide, fog: false }));
+  const skyM = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false }), skies = {};
+  { const sky = new THREE.Mesh(new THREE.CylinderGeometry(70, 70, 50, 48, 1, true, Math.PI * 0.62, Math.PI * 0.76), skyM);
     sky.position.set(0, 14, 4); scene.add(sky); }
 
   // the table and Lola's big bilao
@@ -74,5 +80,57 @@ export function buildStall(scene, renderer, { base = 'assets/env/' } = {}) {
   for (const [id, x, z, ry] of [['plastic_monobloc_chair_01', -11.5, 5, 0.6], ['plastic_monobloc_chair_01', 11.8, 4, -0.5], ['plastic_crate_02', 10.6, -1, 0.3], ['small_lpg_tank', -10.8, -2, 0], ['Barrel_01', 13.5, -6, 0.4], ['wooden_bucket_02', -12.8, -4.8, 0]]) {
     gl.loadAsync(`${base}props/${id}.glb`).then((g) => { const o = g.scene; o.scale.setScalar(2.2); o.position.set(x, -1.6, z); o.rotation.y = ry; shadow(o); scene.add(o); }).catch(() => { /* fine without */ });
   }
-  return { bilaoRadius, sun, update(t) { for (const b of bulbs) b.material.emissiveIntensity = 3 + Math.sin(t * 3 + b.id) * 1; } };
+  // each town's street dressing, built the first time it's needed
+  const stripeTex = (a, b) => { const c = document.createElement('canvas'); c.width = 128; c.height = 8; const x = c.getContext('2d'); for (let i = 0; i < 8; i++) { x.fillStyle = i % 2 ? b : a; x.fillRect(i * 16, 0, 16, 8); } const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+  const DRESS = {
+    // the market: striped awnings over the doors, and crates of produce on the street
+    noon() {
+      const g = new THREE.Group(), cols = [['#2f6fd6', '#f4f0e4'], ['#2fa060', '#f4f0e4'], ['#e8a020', '#fff4e0']];
+      const fruit = [['#d8302a', 0.16], ['#7ab83a', 0.11], ['#f2c02a', 0.17], ['#6a2a7a', 0.15]], fruitGeo = new THREE.SphereGeometry(1, 12, 8);
+      const crateM = new THREE.MeshStandardMaterial({ color: '#a7743f', roughness: 0.85 });
+      for (let k = 0; k < 8; k++) {
+        const x = -24 + k * 6.6, z = -15.5 - (k % 2) * 1.2 + 2.05, [ca, cb] = cols[k % 3];
+        const aw = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.6), new THREE.MeshStandardMaterial({ map: stripeTex(ca, cb), roughness: 0.8, side: THREE.DoubleSide }));
+        aw.position.set(x, 1.5, z + 0.7); aw.rotation.x = -1.05; g.add(aw);
+        for (let c = 0; c < 3; c++) {
+          const crate = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.45, 0.6), crateM); crate.position.set(x - 1.2 + c * 1.2, -1.38, z + 1.1); g.add(crate);
+          const [fc, r] = fruit[(k + c) % 4], fm = new THREE.MeshStandardMaterial({ color: fc, roughness: 0.45 });
+          for (let q = 0; q < 6; q++) { const f = new THREE.Mesh(fruitGeo, fm); f.scale.setScalar(r); f.position.set(x - 1.2 + c * 1.2 + ((q % 3) - 1) * 0.26, -1.1, z + 1.1 + ((q / 3) | 0) * 0.24 - 0.12); g.add(f); }
+        }
+      }
+      return shadow(g);
+    },
+    // Simbang Gabi: glowing parol stars hung from the stall, tails and all
+    dusk() {
+      const g = new THREE.Group(), star = new THREE.Shape();
+      for (let k = 0; k < 10; k++) { const a = Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? 0.26 : 0.62; k ? star.lineTo(Math.cos(a) * r, Math.sin(a) * r) : star.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+      const geo = new THREE.ExtrudeGeometry(star, { depth: 0.12, bevelEnabled: false }); geo.center();
+      const ringGeo = new THREE.TorusGeometry(0.66, 0.025, 6, 40), tailGeo = new THREE.BoxGeometry(0.05, 1.0, 0.01);
+      [['#ff3a3a', -7.0], ['#ffd23f', -5.9], ['#3a9aff', 5.9], ['#ff5ad0', 7.0]].forEach(([c, x], k) => {
+        const m = new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 1.4, roughness: 0.5 }), p = new THREE.Group();
+        p.add(new THREE.Mesh(geo, m), new THREE.Mesh(ringGeo, m));
+        for (const dx of [-0.12, 0, 0.12]) { const t = new THREE.Mesh(tailGeo, m); t.position.set(dx, -1.05, 0); p.add(t); }
+        p.position.set(x, 4.9 - (k % 2) * 0.5, -5.6); p.userData.parol = true; g.add(p);
+      });
+      const glow = new THREE.PointLight('#ffb070', 2, 7, 1.8); glow.position.set(0, 5.4, -5.4); g.add(glow);
+      return g;
+    },
+  };
+  const dressed = {};
+  // each town's time of day: the backdrop, the sun, the sky light, fog, exposure and how bright the string lights are
+  let lamps = 1;
+  function setTheme(id) {
+    const T = THEMES[id] || THEMES.golden;
+    if (!skies[T.sky]) { const t = tl.load(`${base}sky/${T.sky}.jpg`); t.colorSpace = THREE.SRGBColorSpace; skies[T.sky] = t; }
+    skyM.map = skies[T.sky]; skyM.needsUpdate = true;
+    sun.color.set(T.sunC); sun.intensity = T.sunI; sun.position.set(...T.sunP);
+    hemi.color.set(T.hemi[0]); hemi.groundColor.set(T.hemi[1]); hemi.intensity = T.hemi[2];
+    scene.fog.color.set(T.fog[0]); scene.fog.near = T.fog[1]; scene.fog.far = T.fog[2];
+    scene.environmentIntensity = T.env; renderer.toneMappingExposure = T.exp; lamps = T.lamps;
+    if (!dressed[id] && DRESS[id]) { dressed[id] = DRESS[id](); scene.add(dressed[id]); }
+    for (const [k, o] of Object.entries(dressed)) o.visible = k === id;
+    return T.grade;
+  }
+  setTheme('golden');
+  return { bilaoRadius, sun, setTheme, update(t) { for (const b of bulbs) b.material.emissiveIntensity = lamps * (3 + Math.sin(t * 3 + b.id) * 1); if (dressed.dusk?.visible) dressed.dusk.children.forEach((p, k) => { if (p.userData.parol) p.rotation.z = Math.sin(t * 0.9 + k) * 0.06; }); } };
 }
