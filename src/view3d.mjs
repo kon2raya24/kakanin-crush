@@ -84,17 +84,25 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
   }
 
   // ---------- events ----------
-  async function play(events, game) {
+  // Play a move's events. onBeat(beat) fires as each part animates, so sound and Lola land on time:
+  // swap/bounce/combo/shuffle/ubos/ubosMake/end as they start; per cascade step, 'fire' per special as its
+  // beam starts, 'pop' as the pieces burst, 'land' when the falls end. During Ubos-Benta the Sandoks go
+  // off one after another.
+  async function play(events, game, onBeat = () => {}) {
     g = game;
+    let ubos = false;
     for (const e of events) {
       if (e.type === 'swap' || e.type === 'bounce') {
+        onBeat(e);
         const A = meshes[e.a], B = meshes[e.b], pa = cellPos(e.a), pb = cellPos(e.b);
         await tween(0.16 * k(), (u) => { const s = ease.out(u); if (A) A.position.lerpVectors(pa, pb, s); if (B) B.position.lerpVectors(pb, pa, s); });
         if (e.type === 'bounce') await tween(0.16 * k(), (u) => { const s = ease.out(u); if (A) A.position.lerpVectors(pb, pa, s); if (B) B.position.lerpVectors(pa, pb, s); });
         else [meshes[e.a], meshes[e.b]] = [meshes[e.b], meshes[e.a]];
       } else if (e.type === 'step') {
         if (CALLOUTS[Math.min(e.step, 5)]) callout(CALLOUTS[Math.min(e.step, 5)], e.step);
-        await Promise.all(e.fired.map(([i, sp]) => beam(i, sp)));
+        if (ubos) for (const [i, sp] of e.fired) { onBeat({ type: 'fire', i, spec: sp }); await Promise.race([beam(i, sp), tween(0.09 * k(), () => {})]); }
+        else { for (const [i, sp] of e.fired) onBeat({ type: 'fire', i, spec: sp }); await Promise.all(e.fired.map(([i, sp]) => beam(i, sp))); }
+        onBeat({ type: 'pop', step: e.step, cleared: e.cleared, latik: e.latik, made: e.made });
         const gone = e.cleared.map(([i, kind]) => { const m = meshes[i]; meshes[i] = null; burst(cellPos(i), kind); return m; }).filter(Boolean);
         await tween(0.2 * k(), (u) => { for (const m of gone) m.scale.setScalar(u < 0.3 ? 1 + u : Math.max(0.001, 1.3 * (1 - (u - 0.3) / 0.7))); });
         for (const m of gone) boardG.remove(m);
@@ -109,14 +117,17 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
         }
         const far = Math.max(1, ...moving.map(([, a, b]) => a.distanceTo(b)));
         await tween((0.12 + far * 0.05) * k(), (u) => { const s = ease.in(u); for (const [m, a, b] of moving) m.position.lerpVectors(a, b, s); });
+        onBeat({ type: 'land', count: moving.length });
       } else if (e.type === 'ubosMake') {
+        ubos = true; onBeat(e);
         callout('Ubos-Benta!', 5);
         for (const [i] of e.made) { place(i); }
         await tween(0.35 * k(), () => {});
       } else if (e.type === 'shuffle') {
+        onBeat(e);
         await tween(0.25 * k(), (u) => { for (const m of meshes) if (m) m.scale.setScalar(Math.max(0.01, 1 - u)); });
         for (let i = 0; i < W * H; i++) place(i);
-      }
+      } else onBeat(e); // combo, ubos, end
     }
     sync();
   }

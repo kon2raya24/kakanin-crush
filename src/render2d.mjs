@@ -34,7 +34,18 @@ export function createFlat(canvas) {
   }
   return {
     setGame(game) { g = game; resize(); },
-    async play(events, game) { g = game; for (const e of events) if (e.type === 'step' && e.step >= 2) callout(['', '', 'Sarap!', 'Linamnam!', 'Panalo!', 'Ubos-Benta!'][Math.min(e.step, 5)], e.step); busyT = 0.25; await new Promise((r) => setTimeout(r, 250)); },
+    // the same beats as the 3D view, in order, without animation
+    async play(events, game, onBeat = () => {}) {
+      g = game;
+      for (const e of events) {
+        if (e.type !== 'step') { onBeat(e); continue; }
+        if (e.step >= 2) callout(['', '', 'Sarap!', 'Linamnam!', 'Panalo!', 'Ubos-Benta!'][Math.min(e.step, 5)], e.step);
+        for (const [i, sp] of e.fired) onBeat({ type: 'fire', i, spec: sp });
+        onBeat({ type: 'pop', step: e.step, cleared: e.cleared, latik: e.latik, made: e.made });
+        onBeat({ type: 'land', count: e.falls.length + e.spawns.length });
+      }
+      busyT = 0.25; await new Promise((r) => setTimeout(r, 250));
+    },
     pick(cx, cy) { if (!g) return -1; const { r, cell, ox, oy } = geom(); const x = Math.floor((cx - r.left - ox) / cell), y = Math.floor((cy - r.top - oy) / cell); if (x < 0 || y < 0 || x >= g.W || y >= g.H) return -1; const i = y * g.W + x; return g.mask[i] ? i : -1; },
     select(i) { selected = i; }, showHint(p) { hintPair = p; },
     update(dt) { busyT = Math.max(0, busyT - dt); draw(); },

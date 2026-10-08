@@ -78,6 +78,13 @@ function hud(prev) {
   if (prev) game.goals.forEach((q, n) => { if (q.got !== prev[n]) { const el = $('h-goals').children[n]; el?.classList.add('pop'); A.event({ type: 'goal' }); } });
 }
 
+// ---------- beats: the view calls this as each part of a move animates ----------
+const beats = []; // the last moves' beats, for the browser checks
+function beat(b) {
+  A.event(b);
+  if (TEST) { beats.push({ type: b.type, t: performance.now() }); if (beats.length > 400) beats.splice(0, 200); }
+}
+
 // ---------- flow ----------
 function titleScreen() { mode = 'title'; game = null; busy = false; $('title-stars').textContent = totalStars(data) ? `★ ${totalStars(data)} / ${LEVELS.length * 3}` : ''; show('title'); demo(); }
 function levelsScreen() {
@@ -112,9 +119,8 @@ async function doSwap(a, b) {
   busy = true; sel = -1; view.select(-1); view.showHint(null); idle = 0;
   const g0 = game, prev = game.goals.map((q) => q.got);
   const r = swap(game, a, b);
-  for (const e of r.events) A.event(e);
   if (!r.ok) A.event({ type: 'tsk' });
-  await view.play(r.events, game);
+  await view.play(r.events, game, beat);
   if (game !== g0) return; // the player left this game (restart, levels, menu) while it animated
   hud(prev);
   busy = false;
@@ -208,7 +214,7 @@ async function demoMove() {
   if (!game || busy || view.busy()) return;
   if (game.phase !== 'play') { demo(); return; }
   const mv = chooseMove(game); if (!mv) { demo(); return; }
-  busy = true; const g0 = game, r = swap(game, ...mv); await view.play(r.events, game); if (game === g0) busy = false;
+  busy = true; const g0 = game, r = swap(game, ...mv); await view.play(r.events, game); if (game === g0) busy = false; // the demo is silent
 }
 
 // ---------- loop ----------
@@ -228,4 +234,4 @@ if ('serviceWorker' in navigator && !TEST) navigator.serviceWorker.register('sw.
 const startAt = Q.get('level') ? LEVELS.findIndex((l) => l.id === Q.get('level')) : -1;
 if (startAt >= 0) start(startAt); else titleScreen();
 requestAnimationFrame(frame);
-if (TEST) window.__kc = { get game() { return game; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), get cursor() { return cursor; }, LEVELS, busy: () => busy || view.busy() };
+if (TEST) window.__kc = { get game() { return game; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), beats, get cursor() { return cursor; }, LEVELS, busy: () => busy || view.busy() };
