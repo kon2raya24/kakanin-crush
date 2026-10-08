@@ -83,8 +83,9 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
   // the board's tiles share one geometry and two materials for the life of the view (no per-level leak)
   const tileM = [new THREE.MeshStandardMaterial({ color: '#4a9440', roughness: 0.5 }), new THREE.MeshStandardMaterial({ color: '#3d8236', roughness: 0.5 })];
   const tileGeo = new RoundedBoxGeometry(CELL - 0.06, 0.03, CELL - 0.06, 2, 0.01);
+  let gen = 0; // bumped by setGame: a move still playing for the old board stops at its next pause
   function setGame(game) {
-    g = game; W = g.W; H = g.H; clearBoard();
+    gen++; g = game; W = g.W; H = g.H; clearBoard();
     const mat = new THREE.Mesh(new RoundedBoxGeometry(W * CELL + 0.25, 0.04, H * CELL + 0.25, 2, 0.02), MATS.leaf); mat.userData.own = true; mat.position.y = 0; mat.receiveShadow = true; boardG.add(mat);
     for (let i = 0; i < W * H; i++) {
       if (!g.mask[i]) continue;
@@ -102,23 +103,26 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
   // off one after another.
   async function play(events, game, onBeat = () => {}) {
     g = game;
-    let ubos = false;
+    let ubos = false; const my = gen;
     for (const e of events) {
+      if (gen !== my) return;
       if (e.type === 'swap' || e.type === 'bounce') {
         onBeat(e);
         const A = meshes[e.a], B = meshes[e.b], pa = cellPos(e.a), pb = cellPos(e.b);
         await tween(0.16 * k(), (u) => { const s = ease.out(u); if (A) A.position.lerpVectors(pa, pb, s); if (B) B.position.lerpVectors(pb, pa, s); });
         if (e.type === 'bounce') await tween(0.16 * k(), (u) => { const s = ease.out(u); if (A) A.position.lerpVectors(pb, pa, s); if (B) B.position.lerpVectors(pa, pb, s); });
-        else [meshes[e.a], meshes[e.b]] = [meshes[e.b], meshes[e.a]];
+        else if (gen === my) [meshes[e.a], meshes[e.b]] = [meshes[e.b], meshes[e.a]];
       } else if (e.type === 'step') {
         if (CALLOUTS[Math.min(e.step, 5)]) callout(`x${e.step} ${CALLOUTS[Math.min(e.step, 5)]}`, e.step);
         const boom = (sp) => { if (sp === KALDERO) kick(0.18); else if (sp === LAHAT) { kick(0.32); if (!reduced()) flash = 0.55; } else kick(0.07); };
         if (ubos) for (const [i, sp] of e.fired) { onBeat({ type: 'fire', i, spec: sp }); boom(sp); await Promise.race([beam(i, sp), tween(0.09 * k(), () => {})]); }
         else { for (const [i, sp] of e.fired) { onBeat({ type: 'fire', i, spec: sp }); boom(sp); } await Promise.all(e.fired.map(([i, sp]) => beam(i, sp))); }
+        if (gen !== my) return;
         if (e.step >= 4) kick(0.08);
         onBeat({ type: 'pop', step: e.step, cleared: e.cleared, latik: e.latik, made: e.made });
         const gone = e.cleared.map(([i, kind]) => { const m = meshes[i]; meshes[i] = null; burst(cellPos(i), kind); return m; }).filter(Boolean);
         await tween(0.2 * k(), (u) => { for (const m of gone) m.scale.setScalar(u < 0.3 ? 1 + u : Math.max(0.001, 1.3 * (1 - (u - 0.3) / 0.7))); });
+        if (gen !== my) return;
         for (const m of gone) boardG.remove(m);
         for (const [i] of e.latik) placeLatik(i);
         if (e.hits.length) onBeat({ type: 'hit', hits: e.hits });
@@ -143,6 +147,7 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
         }
         const far = Math.max(1, ...moving.map(([, a, b]) => a.distanceTo(b)));
         await tween((0.12 + far * 0.05) * k(), (u) => { const s = ease.in(u); for (const [m, a, b] of moving) m.position.lerpVectors(a, b, s); });
+        if (gen !== my) return;
         onBeat({ type: 'land', count: moving.length });
         if (e.delivered.length) {
           onBeat({ type: 'deliver', delivered: e.delivered });
@@ -158,6 +163,7 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
         onBeat(e);
         const pairs = e.moved.map(([a, b]) => [meshes[a], meshes[b], cellPos(a), cellPos(b)]);
         await tween(0.2 * k(), (u) => { const s = ease.out(u); for (const [A, B, pa, pb] of pairs) { if (A) A.position.lerpVectors(pa, pb, s); if (B) B.position.lerpVectors(pb, pa, s); } });
+        if (gen !== my) return;
         for (const [a, b] of e.moved) [meshes[a], meshes[b]] = [meshes[b], meshes[a]];
       } else if (e.type === 'ants') {
         onBeat(e);
@@ -295,7 +301,7 @@ export function createView(canvas, { gfx = null, reduced = () => false, speed = 
     showHint(pair) { hintPair = pair; hintTiles.forEach((m, q) => { m.visible = !!pair; if (pair) m.position.copy(cellPos(pair[q], 0.05)); }); },
     busy: () => tweens.length > 0,
     hintShown: () => hintPair,
-    dump: () => ({ kinds: meshes.map((m) => (m ? m.userData.kind : EMPTY)), specs: meshes.map((m) => (m ? m.userData.spec : NONE)), wraps: wrapM.map((m) => (m ? 1 : 0)) }),
+    dump: () => ({ kinds: meshes.map((m) => (m ? m.userData.kind : EMPTY)), specs: meshes.map((m) => (m ? m.userData.spec : NONE)), wraps: wrapM.map((m) => (m ? 1 : 0)), strays: boardG.children.filter((o) => o.userData.kind !== undefined && !meshes.slice(0, W * H).includes(o)).length }),
     onCallout(fn) { callout = fn; },
     get level() { return post.level; },
     setSpeed(s) { speed = s; },

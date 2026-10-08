@@ -130,7 +130,8 @@ function exchange(g, a, b) {
   [g.cell[a], g.cell[b]] = [g.cell[b], g.cell[a]];
   [g.spec[a], g.spec[b]] = [g.spec[b], g.spec[a]];
 }
-const isCombo = (g, a, b) => g.spec[a] === LAHAT || g.spec[b] === LAHAT || (g.spec[a] !== NONE && g.spec[b] !== NONE);
+// a Bilao (or two specials) going off together; never with an ingredient, which nothing can clear
+const isCombo = (g, a, b) => !isIngredient(g.cell[a]) && !isIngredient(g.cell[b]) && (g.spec[a] === LAHAT || g.spec[b] === LAHAT || (g.spec[a] !== NONE && g.spec[b] !== NONE));
 
 export function findMoves(g) {
   const out = [], { W, H } = g;
@@ -285,10 +286,10 @@ function explode(g, start, keep) {
 }
 
 // Resolve the board until nothing matches. first: cells to clear in step 1 (a combo); prefer: where specials go.
-function settle(g, ev, prefer = [], first = null) {
-  for (let step = 1; step < 80; step++) {
+function settle(g, ev, prefer = [], first = null, from = 1) {
+  for (let step = from; step < 80; step++) {
     let start; const made = [];
-    if (step === 1 && first) start = first;
+    if (step === from && first) start = first;
     else {
       const groups = findGroups(g);
       if (!groups.length) break;
@@ -302,8 +303,9 @@ function settle(g, ev, prefer = [], first = null) {
     const keep = new Set(made.map((m) => m[0]));
     const out = explode(g, start, keep);
     for (const [i, k, sp] of made) { g.cell[i] = k; g.spec[i] = sp; if (g.latik[i]) { g.latik[i]--; out.latik.push([i, g.latik[i]]); } }
-    const falls = gravity(g), delivered = deliver(g);
-    if (delivered.length) falls.push(...gravity(g)); // what was above a delivered ingredient falls into its place
+    const falls = gravity(g), delivered = [];
+    // what was above a delivered ingredient falls into its place, and may be the next one to deliver
+    for (let d; (d = deliver(g)).length;) { delivered.push(...d); falls.push(...gravity(g)); }
     const points = out.cleared.length * POINTS.piece * step + out.fired.length * POINTS.fired + out.latik.length * POINTS.latik + out.hits.length * POINTS.hit + delivered.length * POINTS.deliver;
     g.score += points;
     const spawns = refill(g);
@@ -353,7 +355,7 @@ function sink(g, ev) {
   if (!moved.length) return;
   ev.push({ type: 'sink', moved });
   const bottom = moved.some(([, j]) => { let k = j + W; while (k < W * H && !g.mask[k]) k += W; return k >= W * H; });
-  settle(g, ev, [], bottom ? [] : null); // an empty first step is how a delivery with no match plays out
+  settle(g, ev, [], bottom ? [] : null, bottom ? 0 : 1); // a delivery with no match plays out as an empty step 0, so a match after it is still step 1
 }
 
 // A quiet turn (no ant swept off): one ant walks onto a neighbouring plain piece. If ants are all that is

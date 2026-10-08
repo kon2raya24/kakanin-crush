@@ -115,6 +115,12 @@ await E(`__kc.swap(${m1}, ${m2}), 1`); await sleep(150);
 await E('document.getElementById("pause-btn").click(), document.querySelector("#pause .to-levels").click(), document.querySelector("#levels .menu").click(), 1');
 const turn0 = await E('__kc.game ? __kc.game.turn : -1');
 check(await until(`__kc.mode === 'title' && __kc.game && __kc.game.turn !== ${turn0}`, 90000), 'the title demo plays after leaving mid-animation');
+// 5d2. a move still animating when a smaller board takes over (9x9 to 7x7) leaves no ghost pieces behind
+await page.load(`${BASE}?test=1&level=pk-04&seed=4`);
+await until('window.__kc && __kc.mode === "play"');
+await E(`__kc.view.play([{ type: 'swap', a: 0, b: 1 }, { type: 'step', step: 1, cleared: [], fired: [], latik: [], hits: [], made: [], falls: [], spawns: [[70, 0, 1, 6]], delivered: [] }], __kc.game), __kc.start(0), 1`);
+await sleep(4000); await until('!__kc.busy()', 60000);
+check(await E('__kc.view.dump().strays') === 0, `no ghost pieces from a move left mid-animation (${await E('__kc.view.dump().strays')} strays)`);
 // 5e. Lola: real when the people files are there, a stand-in without; she claps for a special and never covers the board
 await page.load(`${BASE}?test=1&level=sr-03&seed=6&instant`);
 await until('window.__kc && __kc.mode === "play" && __kc.lola');
@@ -237,6 +243,14 @@ mv0 = await E('__kc.game.moves');
 await mouse('mousePressed', tp[0], tp[1]); await mouse('mouseReleased', tp[0], tp[1]); await until('!__kc.busy()', 30000);
 check(await E('__kc.picking') === null && await E('__kc.game.moves') === mv0 && await E(`document.querySelector('.boost[data-kind=siyanse] small').textContent`) === '1', 'the Siyanse clears a picked cell, costs no move, and counts down');
 check(await matches() && await layers() === 'ok', 'still in sync after boosters');
+// pick mode ends when the level is left (pause), and a drag while picking is not a swap
+await E(`__kc.grant('siyanse', 1), document.querySelector('.boost[data-kind=siyanse]').click(), 1`);
+{ const mvs = await E('__kc.game.moves'), [a, b] = JSON.parse(await E('JSON.stringify(__kc.moves()[0])')), pa = await cellPoint(a), pb = await cellPoint(b);
+  await mouse('mousePressed', pa[0], pa[1]); await page.cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: pb[0], y: pb[1], button: 'left' }); await mouse('mouseReleased', pb[0], pb[1]); await until('!__kc.busy()', 20000);
+  check(await E('__kc.game.moves') === mvs, 'a drag while picking a booster cell is not a swap'); }
+await E(`__kc.picking || document.querySelector('.boost[data-kind=siyanse]').click(), document.getElementById('pause-btn').click(), 1`);
+check(await E(`__kc.picking === null && !document.body.classList.contains('picking')`), 'pausing ends pick mode and its crosshair');
+await E(`document.getElementById('resume').click(), 1`);
 // a delivery level played through: the gata sinks, is delivered, and the board stays right
 await page.load(`${BASE}?test=1&level=sb-04&bot&instant&seed=7`);
 check(await until('__kc.mode === "result"', 120000), 'the bot plays a delivery level through');

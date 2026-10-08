@@ -377,6 +377,29 @@ test('ingredients are heavy: after a turn each sinks a row, is delivered at the 
   assert.ok(r.events.some((e) => e.type === 'sink' || (e.type === 'step' && e.delivered.length)), 'a real turn sinks the gata');
 });
 
+test('review fixes: stacked ingredients are both delivered; a sink delivery numbers its match as step 1; a Bilao never swaps with an ingredient', () => {
+  // two gata stacked at the bottom of column 0: the first is delivered, the second drops into its place and goes too
+  const d = setBoard(createGame(L({ w: 3, h: 4, goals: [{ type: 'deliver', kind: 'gata', n: 2 }] })), ['kbu', 'bpm', 'mps', 'ukp']);
+  setBlockers(d, ['...', '...', 'g..', 'g..']);
+  const r = useBooster(d, 'siyanse', 2); // any settle will do: clear the top-right piece
+  const del = r.events.filter((e) => e.type === 'step').flatMap((e) => e.delivered);
+  assert.equal(del.length, 2, `both delivered (${JSON.stringify(del)})`); assert.equal(d.goals[0].got, 2);
+  // the gata sinks to the bottom and is delivered; column 2 drops a row, which lines up k k k on row 3:
+  // that match is step 1, not a x2 combo
+  const g = setBoard(createGame(L({ goals: [{ type: 'deliver', kind: 'gata', n: 2 }] })), ['kbumk', 'bumkb', 'umkbs', 'kkbbu', 'mkpsu']);
+  setBlockers(g, ['.....', '.....', '.....', '..g..', '.....']);
+  const e2 = []; _t.sink(g, e2);
+  const steps = e2.filter((e) => e.type === 'step');
+  assert.ok(steps.some((e) => e.delivered.length), 'delivered at the bottom');
+  const match = steps.find((e) => e.cleared.length);
+  assert.ok(match, 'the drop makes a match'); assert.equal(match.step, 1);
+  // a Bilao next to an ingredient is not a move
+  const b = setBoard(createGame(L()), ['kbumk', 'bumkb', 'um*bs', 'mkbsu', 'kumbs']);
+  setBlockers(b, ['.....', '.....', '.g...', '.....', '.....']);
+  assert.ok(!findMoves(b).some(([x, y]) => (x === 11 && y === 12) || (x === 12 && y === 11)));
+  assert.equal(swap(b, 11, 12).ok, false);
+});
+
 test('ingredients spawn at a column top while more are owed', () => {
   const g = createGame(L({ w: 5, h: 5, ingredients: { gata: 2, onBoard: 1 }, goals: [{ type: 'deliver', kind: 'gata', n: 2 }] }));
   assert.equal([...g.cell].filter((c) => c === GATA).length, 1, 'one on the board to start');

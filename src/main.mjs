@@ -42,6 +42,7 @@ async function makeView() {
 let mode = 'title', game = null, levelIx = 0, sel = -1, idle = 0, icons = {}, busy = false;
 const SCREENS = ['title', 'map', 'levels', 'intro', 'pause', 'result'];
 function show(name) {
+  if (name !== null && picking) pickMode(null); // leaving the board (pause, menus) ends a booster pick
   for (const id of SCREENS) $(id).hidden = id !== name;
   $('hud').hidden = !(name === null || name === 'pause');
   $('help').hidden = name === null;
@@ -200,6 +201,7 @@ stage.addEventListener('pointermove', (e) => {
   const dx = e.clientX - down.x, dy = e.clientY - down.y;
   if (Math.hypot(dx, dy) < 22) return;
   down.moved = true;
+  if (picking) return; // picking a booster's cell takes a tap; a drag does nothing
   const W = game.W, j = Math.abs(dx) > Math.abs(dy) ? down.i + Math.sign(dx) : down.i + Math.sign(dy) * W;
   if (adjacent(game, down.i, j)) doSwap(down.i, j);
 });
