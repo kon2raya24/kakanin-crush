@@ -1,7 +1,7 @@
 // The page: screens, the HUD, input (drag, tap-tap, keys), the loop, sound and saves. The rules live in
 // game.mjs and only change through swap(); the view animates their events and ignores input until the
 // board is still again.
-import { createGame, swap, hint, adjacent, findMoves, KAKANIN } from './game.mjs';
+import { createGame, swap, useBooster, hint, adjacent, findMoves, KAKANIN, GATA, ASUKAL, KAHON, LANGGAM } from './game.mjs';
 import { LEVELS, townOf } from './levels.mjs';
 import { chooseMove } from './bot.mjs';
 import { load, save, record, isUnlocked, totalStars, fresh } from './progress.mjs';
@@ -54,14 +54,18 @@ function say(text) {
   if (lola) lola.say(); const b = $('bubble'); b.innerHTML = '<b>Lola:</b> '; b.append(text); b.hidden = false; clearTimeout(say.t); say.t = setTimeout(() => { b.hidden = true; }, 3800); }
 
 // ---------- HUD ----------
-const goalText = (q) => (q.type === 'collect' ? `${KAKANIN[q.kind]}` : q.type === 'latik' ? 'latik' : 'puntos');
+// each goal's icon (a rendered piece) and its words
+const goalIcon = (q) => (q.type === 'collect' || q.type === 'deliver' ? q.kind : q.type === 'kahon' ? KAHON : q.type === 'langgam' ? LANGGAM : -1);
+const goalLeft = (q) => (q.type === 'langgam' ? q.left : Math.max(0, q.need - q.got));
+const INGNAME = { [GATA]: 'gata', [ASUKAL]: 'asukal' };
 function drawGoals() {
   const box = $('h-goals'); box.replaceChildren();
   for (const q of game.goals) {
     const row = document.createElement('div'); row.className = 'goal' + (q.got >= q.need ? ' done' : '');
-    if (q.type === 'collect' && icons[q.kind]) { const im = new Image(); im.src = icons[q.kind]; im.alt = KAKANIN[q.kind]; row.append(im); }
-    const left = Math.max(0, q.need - q.got);
-    row.append(q.type === 'score' ? `${Math.min(q.got, q.need)} / ${q.need}` : q.type === 'latik' ? `latik × ${left}` : `× ${left}`);
+    const ic = goalIcon(q);
+    if (icons[ic]) { const im = new Image(); im.src = icons[ic]; im.alt = KAKANIN[ic] || INGNAME[ic] || q.type; row.append(im); }
+    const left = goalLeft(q);
+    row.append(q.type === 'score' ? `${Math.min(q.got, q.need)} / ${q.need}` : q.type === 'latik' || q.type === 'dahon' ? `${q.type} × ${left}` : `× ${left}`);
     box.append(row);
   }
 }
@@ -105,25 +109,30 @@ function levelsScreen() {
 function intro(k) {
   levelIx = k; const lv = LEVELS[k]; mode = 'intro';
   $('intro-name').textContent = `${k + 1}. ${lv.name}`;
-  $('intro-goals').textContent = 'Kailangan: ' + lv.goals.map((q) => (q.type === 'collect' ? `${q.n} ${q.kind}` : q.type === 'latik' ? 'linisin ang lahat ng latik' : `${q.n.toLocaleString('en-PH')} puntos`)).join(' · ') + ` — sa ${lv.moves} galaw`;
+  const said = { latik: 'linisin ang lahat ng latik', dahon: 'buksan ang lahat ng dahon', kahon: 'basagin ang lahat ng kahon', langgam: 'itaboy ang lahat ng langgam' };
+  $('intro-goals').textContent = 'Kailangan: ' + lv.goals.map((q) => (q.type === 'collect' || q.type === 'deliver' ? `${q.n} ${q.kind}` : said[q.type] || `${q.n.toLocaleString('en-PH')} puntos`)).join(' · ') + ` — sa ${lv.moves} galaw`;
   $('intro-tip').textContent = lv.tip ? `Lola: "${lv.tip}"` : '';
   show('intro');
 }
 function start(k = levelIx) {
   levelIx = k; A.start(); A.music(true);
   const lv = LEVELS[k], seed = Q.get('seed') ? Number(Q.get('seed')) : (lv.seed * 7919 + Math.floor(Math.random() * 1e6)) >>> 0;
-  game = createGame(lv, seed); sel = -1; cursor = -1; idle = 0; busy = false;
+  game = createGame(lv, seed); sel = -1; cursor = -1; idle = 0; busy = false; picking = null;
   view.setGame(game); view.select(-1); view.showHint(null);
-  mode = 'play'; show(null); hud(); beat({ type: 'go' });
+  mode = 'play'; show(null); hud(); drawBoosts(); beat({ type: 'go' });
   if (lv.tip) say(lv.tip);
   hintOnce('swap', 'I-drag ang kakanin papunta sa katabi, o i-tap ang dalawa.');
 }
 async function doSwap(a, b) {
   if (mode !== 'play' || busy || view.busy() || !adjacent(game, a, b)) return;
   busy = true; sel = -1; view.select(-1); view.showHint(null); idle = 0;
-  const g0 = game, prev = game.goals.map((q) => q.got);
-  const r = swap(game, a, b);
+  const prev = game.goals.map((q) => q.got), r = swap(game, a, b);
   if (!r.ok) A.event({ type: 'tsk' });
+  await playOut(r, prev);
+}
+// play a move's (or a booster's) events out, then the HUD and the level's end
+async function playOut(r, prev) {
+  const g0 = game;
   await view.play(r.events, game, (b) => { if (game === g0) beat(b); }); // a move you've left makes no more sound
   if (game !== g0) return; // the player left this game (restart, levels, menu) while it animated
   hud(prev);
@@ -175,6 +184,7 @@ stage.addEventListener('pointerup', () => {
   if (!down) return;
   const { i, moved } = down; down = null;
   if (moved || mode !== 'play') return;
+  if (picking) { boost(picking, i); return; }
   if (sel >= 0 && adjacent(game, sel, i)) { doSwap(sel, i); return; }
   sel = sel === i ? -1 : i; view.select(sel); A.event({ type: 'select' });
 });
@@ -183,6 +193,7 @@ let cursor = -1;
 // the cell nearest i that is part of the bilao (the centre of a shaped board can be a hole)
 const firstCell = (i) => { if (game.mask[i]) return i; let best = -1; for (let j = 0; j < game.cell.length; j++) if (game.mask[j] && (best < 0 || Math.abs(j - i) < Math.abs(best - i))) best = j; return best; };
 addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && picking) { pickMode(null); return; }
   if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { if (mode === 'play') pause(); else if (mode === 'pause') resume(); return; }
   if (mode !== 'play' || !game) return;
   const W = game.W, H = game.H, d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -W, ArrowDown: W }[e.key];
@@ -201,9 +212,38 @@ addEventListener('keydown', (e) => {
     cursor = to; view.select(cursor);
   } else if (e.key === ' ' || e.key === 'Enter') {
     e.preventDefault(); if (cursor < 0) return;
+    if (picking) { boost(picking, cursor); return; }
     sel = sel === cursor ? -1 : cursor; view.select(sel >= 0 ? sel : cursor); A.event({ type: 'select' });
   }
 });
+
+// ---------- boosters: Pamaypay and Merienda act at once; the Sandok and the Siyanse need a cell ----------
+const BOOSTS = { pamaypay: ['🪭', 'Pamaypay: haluin ang bilao'], sandok: ['🥄', 'Sandok: gawing Sandok ang isang kakanin'], merienda: ['🍌', 'Merienda: +5 galaw'], siyanse: ['🍳', 'Siyanse: tanggalin ang isang piraso'] };
+let picking = null;
+function drawBoosts() {
+  const box = $('h-boosts'); box.replaceChildren();
+  for (const [kind, [icon, label]] of Object.entries(BOOSTS)) {
+    const n = data.boosters[kind] || 0, b = document.createElement('button');
+    b.type = 'button'; b.className = 'boost' + (picking === kind ? ' on' : ''); b.disabled = !n; b.dataset.kind = kind;
+    b.setAttribute('aria-label', `${label} (${n})`); b.title = label; b.innerHTML = `${icon}<small>${n}</small>`;
+    b.onclick = () => { if (kind === 'sandok' || kind === 'siyanse') pickMode(picking === kind ? null : kind); else boost(kind); };
+    box.append(b);
+  }
+}
+function pickMode(kind) {
+  if (kind && (mode !== 'play' || busy || view.busy())) return;
+  picking = kind; drawBoosts(); document.body.classList.toggle('picking', !!kind);
+  if (kind) toast(`${BOOSTS[kind][1]} — pumili ng piraso (Esc para kanselahin)`, 3000);
+}
+async function boost(kind, target) {
+  if (mode !== 'play' || busy || view.busy() || !(data.boosters[kind] > 0)) return;
+  const prev = game.goals.map((q) => q.got), r = useBooster(game, kind, target);
+  if (!r.ok) { A.event({ type: 'tsk' }); toast('Hindi puwede diyan, apo.'); return; }
+  data.boosters = { ...data.boosters, [kind]: data.boosters[kind] - 1 }; persist();
+  picking = null; document.body.classList.remove('picking'); drawBoosts();
+  busy = true; sel = -1; view.select(-1); view.showHint(null); idle = 0;
+  await playOut(r, prev);
+}
 
 // ---------- buttons ----------
 function labels() { for (const b of document.querySelectorAll('.sound')) b.textContent = data.muted ? '🔇' : '🔊'; }
@@ -250,4 +290,4 @@ if ('serviceWorker' in navigator && !TEST) navigator.serviceWorker.register('sw.
 const startAt = Q.get('level') ? LEVELS.findIndex((l) => l.id === Q.get('level')) : -1;
 if (startAt >= 0) start(startAt); else titleScreen();
 requestAnimationFrame(frame);
-if (TEST) window.__kc = { get game() { return game; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), beats, audioStats: () => A.stats(), audio: A, get lola() { return lola && { state: lola.state, history: lola.history, box: () => view.screenBox(lola.root()) }; }, get cursor() { return cursor; }, LEVELS, busy: () => busy || view.busy() };
+if (TEST) window.__kc = { get game() { return game; }, grant(kind, n = 3) { data.boosters = { ...data.boosters, [kind]: n }; if (mode === 'play') drawBoosts(); }, get picking() { return picking; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), beats, audioStats: () => A.stats(), audio: A, get lola() { return lola && { state: lola.state, history: lola.history, box: () => view.screenBox(lola.root()) }; }, get cursor() { return cursor; }, LEVELS, busy: () => busy || view.busy() };

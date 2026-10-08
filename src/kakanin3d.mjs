@@ -5,7 +5,8 @@ import * as THREE from './vendor/three.module.min.js';
 import { RoundedBoxGeometry } from './vendor/three-extra.min.js';
 import { rng, noise, fbm, paint } from './tex.mjs';
 
-export const KCOLOR = ['#f4ecdc', '#c0561e', '#8a44b8', '#f0b13c', '#6b2f96', '#3f8a3a', '#ffd23f'];
+export const KCOLOR = ['#f4ecdc', '#c0561e', '#8a44b8', '#f0b13c', '#6b2f96', '#3f8a3a', '#ffd23f', '#7a5232', '#c9925a', '#a0702c', '#2a1a12'];
+// 7 gata, 8 asukal, 9 kahon, 10 langgam (crumb colours for their particles)
 const S = 128;
 const tex = (fn, strength = 3) => paint(S, S, fn, { strength });
 const lathe = (pts, seg = 40) => new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(x, y)), seg);
@@ -111,6 +112,77 @@ function makeLid() {
   return g;
 }
 
+// ---------- the campaign's ingredients and blockers ----------
+const M2 = {
+  husk: new THREE.MeshStandardMaterial({ color: '#6a4426', roughness: 0.95 }),
+  meat: new THREE.MeshPhysicalMaterial({ color: '#f8f4ea', roughness: 0.35, clearcoat: 0.4 }),
+  milk: new THREE.MeshPhysicalMaterial({ color: '#fffdf6', roughness: 0.1, clearcoat: 1 }),
+  sack: new THREE.MeshStandardMaterial({ color: '#c9a675', roughness: 0.95 }),
+  sugar: new THREE.MeshStandardMaterial({ color: '#8a5a2a', roughness: 0.8 }),
+  plank: new THREE.MeshStandardMaterial({ color: '#a7743f', roughness: 0.8 }),
+  plankDark: new THREE.MeshStandardMaterial({ color: '#6e4a25', roughness: 0.85 }),
+  can: new THREE.MeshStandardMaterial({ color: '#d6dde0', roughness: 0.3, metalness: 0.8 }),
+  label: new THREE.MeshStandardMaterial({ color: '#2f7a3a', roughness: 0.6 }),
+  ant: new THREE.MeshStandardMaterial({ color: '#1a120c', roughness: 0.35 }),
+};
+// gata: a halved coconut, its white meat and milk showing
+function makeGata() {
+  const g = new THREE.Group();
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(0.36, 28, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), M2.husk); shell.position.y = 0.36; g.add(shell);
+  const meat = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.03, 28), M2.meat); meat.position.y = 0.36; g.add(meat);
+  const milk = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.03, 28), M2.milk); milk.position.y = 0.375; g.add(milk);
+  const r = rng(11); const fib = new THREE.BoxGeometry(0.008, 0.06, 0.008);
+  for (let k = 0; k < 40; k++) { const f = new THREE.Mesh(fib, M2.husk); const a = r() * 6.28, b = Math.PI / 2 + r() * 1.3; f.position.set(Math.cos(a) * Math.sin(b) * 0.37, 0.36 + Math.cos(b) * 0.37, Math.sin(a) * Math.sin(b) * 0.37); f.lookAt(0, 0.36, 0); g.add(f); }
+  return g;
+}
+// asukal: a small tied sack of muscovado, a little spilling from the top
+function makeAsukal() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(lathe([[0, 0], [0.3, 0], [0.36, 0.12], [0.34, 0.36], [0.2, 0.46], [0.12, 0.5], [0, 0.5]], 32), M2.sack); g.add(body);
+  const tie = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 8, 24), MATS.tie); tie.rotation.x = Math.PI / 2; tie.position.y = 0.46; g.add(tie);
+  const top = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.12, 16), M2.sack); top.position.y = 0.55; g.add(top);
+  const r = rng(13), grain = new THREE.DodecahedronGeometry(0.025);
+  for (let k = 0; k < 10; k++) { const s = new THREE.Mesh(grain, M2.sugar); s.position.set((r() - 0.5) * 0.5, 0.02, (r() - 0.5) * 0.5); g.add(s); }
+  return g;
+}
+// kahon ng gata: a slatted crate with cans of coconut milk; fewer hp, more broken slats
+function makeKahon(hp) {
+  const g = new THREE.Group();
+  const box = new THREE.Mesh(new RoundedBoxGeometry(0.86, 0.6, 0.86, 2, 0.03), hp > 1 ? M2.plank : M2.plankDark); box.position.y = 0.3; g.add(box);
+  for (const s of [-1, 1]) for (const yy of [0.14, 0.46]) { const slat = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 0.04), M2.plankDark); slat.position.set(0, yy, s * 0.44); g.add(slat); }
+  for (let k = 0; k < 3; k++) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.14, 16), M2.can); c.position.set((k - 1) * 0.24, 0.66, 0); g.add(c); const lb = new THREE.Mesh(new THREE.CylinderGeometry(0.102, 0.102, 0.06, 16, 1, true), M2.label); lb.position.copy(c.position); g.add(lb); }
+  if (hp < 3) { const crack = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.025, 0.02), M2.ant); crack.position.set(-0.1, 0.32, 0.445); crack.rotation.z = 0.5; g.add(crack); }
+  if (hp < 2) { const crack2 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.025, 0.02), M2.ant); crack2.position.set(0.15, 0.22, 0.445); crack2.rotation.z = -0.7; g.add(crack2); }
+  return g;
+}
+// langgam: a leaf crawling with ants (the view wiggles the group named 'ants')
+function makeLanggam() {
+  const g = new THREE.Group();
+  const leaf = new THREE.Mesh(new THREE.CircleGeometry(0.42, 24), MATS.leaf); leaf.rotation.x = -Math.PI / 2; leaf.position.y = 0.04; g.add(leaf);
+  const ants = new THREE.Group(); ants.name = 'ants'; g.add(ants);
+  const r = rng(17), seg = new THREE.SphereGeometry(0.05, 8, 6);
+  for (let k = 0; k < 9; k++) {
+    const a = new THREE.Group(); a.position.set((r() - 0.5) * 0.6, 0.07, (r() - 0.5) * 0.6); a.rotation.y = r() * 6.28;
+    for (let q = 0; q < 3; q++) { const b = new THREE.Mesh(seg, M2.ant); b.position.x = (q - 1) * 0.085; b.scale.setScalar(q === 2 ? 1.3 : 1); a.add(b); }
+    ants.add(a);
+  }
+  return g;
+}
+// a dahon wrap: a band of banana leaf around a piece, tied with twine (a child named 'wrap')
+let wrapT = null;
+export function makeWrap() {
+  if (!wrapT) wrapT = buildWrap();
+  return wrapT.clone();
+}
+function buildWrap() {
+  const g = new THREE.Group(); g.name = 'wrap';
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.34, 28, 1, true), MATS.leaf); band.position.y = 0.2; g.add(band);
+  const tie = new THREE.Mesh(new THREE.TorusGeometry(0.445, 0.02, 8, 32), MATS.tie); tie.rotation.x = Math.PI / 2; tie.position.y = 0.22; g.add(tie);
+  const knot = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), MATS.tie); knot.position.set(0, 0.24, 0.445); g.add(knot);
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+
 const MAKERS = [makePuto, makeKutsinta, makeSapin, makeBibingka, makeUbe, makeSuman];
 const templates = new Map();
 function shadowed(o) { o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); return o; }
@@ -119,6 +191,10 @@ export function makePiece(kind, spec = 0) {
   if (!templates.has(key)) {
     let t;
     if (kind === 6) t = makeLahat();
+    else if (kind === 7) t = makeGata();
+    else if (kind === 8) t = makeAsukal();
+    else if (kind === 9) t = makeKahon(spec || 1); // for a crate, spec carries its hp
+    else if (kind === 10) t = makeLanggam();
     else { t = new THREE.Group(); t.add(MAKERS[kind]()); if (spec === 1 || spec === 2) t.add(makeSandok(spec)); if (spec === 3) t.add(makeLid()); }
     templates.set(key, shadowed(t));
   }

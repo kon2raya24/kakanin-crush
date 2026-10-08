@@ -184,14 +184,49 @@ await until('window.__kc && __kc.mode === "play"'); await sleep(1500); await sho
 // the widest row of cells on screen (a bilao-shaped level has holes at its corners)
 const span = JSON.parse(await E(`JSON.stringify((() => { let best = [0, 0]; for (let y = innerHeight * 0.3; y < innerHeight * 0.9; y += 8) { const cols = []; for (let x = 0; x < innerWidth; x += 3) if (__kc.view.pick(x, y) >= 0) cols.push(x); if (cols.length && cols.at(-1) - cols[0] > best[1] - best[0]) best = [cols[0], cols.at(-1)]; } return best; })())`));
 check(span[1] - span[0] >= 390 * 0.85, `the board spans the phone's width (${span[1] - span[0]}px of 390)`);
-const signBottom = await E(`Math.max(...[...document.querySelectorAll('.sign')].map((s) => s.getBoundingClientRect().bottom))`);
+const signBottom = await E(`Math.max(...[...document.querySelectorAll('.sign:not(#sign-boost)')].map((s) => s.getBoundingClientRect().bottom))`);
 const boardTop = await E(`(() => { for (let y = 0; y < innerHeight; y += 3) if (__kc.view.pick(innerWidth / 2, y) >= 0) return y; return 9999; })()`);
+const boostTop = await E(`document.getElementById('sign-boost').getBoundingClientRect().top`);
+const boardBottom = await E(`(() => { for (let y = innerHeight - 1; y > 0; y -= 3) if (__kc.view.pick(innerWidth / 2, y) >= 0) return y; return 0; })()`);
+check(boostTop >= boardBottom - 4, `the boosters sit below the board on a phone (${boostTop} ≥ ${boardBottom})`);
 check(signBottom <= boardTop + 4, `the signboards sit above the board (${signBottom} ≤ ${boardTop})`);
 // 8. the flat fallback is playable
 await page.cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 760, deviceScaleFactor: 1, mobile: false });
 await page.load(`${BASE}?test=1&level=sr-01&flat=1&bot&instant&seed=5`);
 check(await until('__kc.mode === "result"', 60000), 'the flat fallback plays a level through');
 await shot('flat');
+// 9. phase 3: blockers drawn and kept in sync, ingredients delivered, boosters used
+const layers = () => E(`(() => { const d = __kc.view.dump(), g = __kc.game; for (let i = 0; i < g.cell.length; i++) { if (!g.mask[i]) continue; if ((d.wraps[i] || 0) !== g.wrap[i]) return 'wrap ' + i; if (g.cell[i] === 9 && d.specs[i] !== g.crate[i]) return 'crate ' + i; } return 'ok'; })()`);
+await page.load(`${BASE}?test=1&level=pk-04&seed=4`);
+await until('window.__kc && __kc.mode === "play"'); await sleep(1500); await shot('dahon');
+check(await layers() === 'ok' && await E('__kc.game.wrap.some((w) => w)'), `the dahon wraps are drawn (${await layers()})`);
+for (let n = 0; n < 3; n++) { await E('__kc.swap(...__kc.moves()[0]), 1'); await until('!__kc.busy()', 30000); }
+check(await matches() && await layers() === 'ok', `wraps and pieces stay in sync over moves (${await layers()})`);
+// crates and ants put on the board by hand (their towns come later)
+await E(`(() => { const g = __kc.game; g.cell[0] = 9; g.crate[0] = 2; g.cell[2] = 9; g.crate[2] = 1; g.cell[g.W * 2] = 10; __kc.view.setGame(g); return 1; })()`);
+await sleep(800); await shot('blockers');
+check(await matches() && await layers() === 'ok', 'crates (by hp) and ants are drawn');
+for (let n = 0; n < 4 && await E('__kc.game.phase === "play"'); n++) { await E('__kc.swap(...__kc.moves()[0]), 1'); await until('!__kc.busy()', 30000); }
+check(await matches() && await layers() === 'ok', `crates, ants and wraps stay in sync over moves (${await layers()})`);
+// boosters: Merienda at once; the Siyanse picks a cell, and Esc backs out
+await E(`__kc.grant('merienda', 1), __kc.grant('siyanse', 2), 1`);
+let mv0 = await E('__kc.game.moves');
+await E(`document.querySelector('.boost[data-kind=merienda]').click(), 1`); await until('!__kc.busy()', 20000);
+check(await E('__kc.game.moves') === mv0 + 5 && await E(`document.querySelector('.boost[data-kind=merienda]').disabled`), 'Merienda gives 5 moves and is used up');
+await E(`document.querySelector('.boost[data-kind=siyanse]').click(), 1`);
+check(await E('__kc.picking') === 'siyanse', 'the Siyanse waits for a cell');
+await page.cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+check(await E('__kc.picking') === null && await E('__kc.mode') === 'play', 'Esc backs out of picking, without pausing');
+await E(`document.querySelector('.boost[data-kind=siyanse]').click(), 1`);
+const tgt = await E(`__kc.game.cell.findIndex((c, i) => __kc.game.mask[i] && c >= 0 && c < 6 && !__kc.game.wrap[i])`), tp = await cellPoint(tgt);
+mv0 = await E('__kc.game.moves');
+await mouse('mousePressed', tp[0], tp[1]); await mouse('mouseReleased', tp[0], tp[1]); await until('!__kc.busy()', 30000);
+check(await E('__kc.picking') === null && await E('__kc.game.moves') === mv0 && await E(`document.querySelector('.boost[data-kind=siyanse] small').textContent`) === '1', 'the Siyanse clears a picked cell, costs no move, and counts down');
+check(await matches() && await layers() === 'ok', 'still in sync after boosters');
+// a delivery level played through: the gata sinks, is delivered, and the board stays right
+await page.load(`${BASE}?test=1&level=sb-04&bot&instant&seed=7`);
+check(await until('__kc.mode === "result"', 120000), 'the bot plays a delivery level through');
+check(await E(`__kc.beats.some((b) => b.type === 'deliver') && __kc.beats.some((b) => b.type === 'sink')`), 'ingredients sink and are delivered, with their beats');
 check((await E('JSON.stringify(__errs)')) === '[]', `no page errors ${await E('JSON.stringify(__errs)')}`);
 await page.close().catch(() => {});
 console.log(fails.length ? `\n${fails.length} FAILED` : '\nall ok');

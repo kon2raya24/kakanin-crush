@@ -4,7 +4,8 @@ import { LEVELS } from './levels.mjs';
 
 export const KEY = 'kakanin.v1';
 const IDS = new Set(LEVELS.map((l) => l.id));
-export const fresh = () => ({ v: 1, stars: {}, best: {}, muted: false, calm: false, hints: [] });
+export const BOOSTERS = ['pamaypay', 'sandok', 'merienda', 'siyanse'];
+export const fresh = () => ({ v: 1, stars: {}, best: {}, muted: false, calm: false, hints: [], boosters: {}, granted: 0 });
 
 function clean(v) {
   const d = fresh();
@@ -12,6 +13,8 @@ function clean(v) {
   for (const [id, n] of Object.entries(v.stars || {})) if (IDS.has(id) && Number.isFinite(n) && n > 0) d.stars[id] = Math.min(3, Math.floor(n));
   for (const [id, n] of Object.entries(v.best || {})) if (IDS.has(id) && Number.isFinite(n) && n > 0) d.best[id] = Math.floor(n);
   d.muted = v.muted === true; d.calm = v.calm === true;
+  for (const k of BOOSTERS) { const n = v.boosters?.[k]; if (Number.isFinite(n) && n > 0) d.boosters[k] = Math.min(3, Math.floor(n)); }
+  if (Number.isFinite(v.granted) && v.granted > 0) d.granted = Math.floor(v.granted);
   if (Array.isArray(v.hints)) d.hints = v.hints.filter((h) => typeof h === 'string').slice(0, 50);
   return d;
 }

@@ -29,3 +29,11 @@ test('record keeps the best, unlocks the next level, and saving survives a broke
   assert.doesNotThrow(() => save(broken, d));
   assert.equal(LEVELS[1].id, 'sr-02');
 });
+
+test('booster counts load cleaned (0..3 of the four kinds), and a phase-2 save without them loads unchanged', () => {
+  const old = { v: 1, stars: { 'sr-01': 3 }, best: { 'sr-01': 9000 }, muted: true, calm: false, hints: ['swap'] };
+  const d = load(mem({ [KEY]: JSON.stringify(old) }));
+  assert.equal(d.stars['sr-01'], 3); assert.equal(d.muted, true); assert.deepEqual(d.boosters, {}); assert.equal(d.granted, 0);
+  const e = load(mem({ [KEY]: JSON.stringify({ ...old, boosters: { sandok: 9, merienda: 2, pamaypay: -1, siyanse: 'x', bomba: 3 }, granted: 4.7 }) }));
+  assert.deepEqual(e.boosters, { sandok: 3, merienda: 2 }); assert.equal(e.granted, 4);
+});

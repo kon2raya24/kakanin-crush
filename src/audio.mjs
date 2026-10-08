@@ -15,7 +15,7 @@ const LOOP = [0, 2, 4, 2, 5, 4, 2, -1, 3, 4, 5, 7, 5, 4, 2, -1];
 const SAMPLES = {
   pop: ['pop', 4], select: ['select', 3], click: ['click', 3], tsk: ['tsk', 0], special: ['special', 3], glass: ['glass', 6],
   start: ['start', 0], swap: ['swap', 4], chips: ['chips', 6], handle: ['handle', 3], shuffle: ['shuffle', 0],
-  kaldero: ['kaldero', 3, 0], latik: ['latik', 3, 0], sandok: ['sandok', 3], coin: ['coin', 2], win: ['win', 0], lose: ['lose', 0], star3: ['star3', 0], go: ['go', 0],
+  kaldero: ['kaldero', 3, 0], latik: ['latik', 3, 0], sandok: ['sandok', 3], coin: ['coin', 2], cloth: ['cloth', 3], plank: ['plank', 3, 0], rustle: ['rustle', 3, 0], thud: ['thud', 3, 0], win: ['win', 0], lose: ['lose', 0], star3: ['star3', 0], go: ['go', 0],
 };
 
 export function createAudio({ base = 'assets/sfx/' } = {}) {
@@ -146,6 +146,18 @@ export function createAudio({ base = 'assets/sfx/' } = {}) {
           break;
         }
         case 'combo': play('kaldero', { gain: 0.6, rate: 0.8 }); play('sandok', { gain: 0.5, at: 0.05 }); tone(110, 0.6, 'sine', 0.18, 0, 0.4); break;
+        case 'hit': {
+          const has = (w) => b.hits.some((h) => h[1] === w);
+          if (has('wrap')) play('cloth', { gain: 0.5 });
+          if (has('crate')) { play('plank', { gain: 0.6 }); if (b.hits.some((h) => h[1] === 'crate' && !h[2])) play('plank', { gain: 0.5, rate: 0.8, at: 0.06 }); }
+          if (has('ant')) play('rustle', { gain: 0.55, rate: 1.3 });
+          break;
+        }
+        case 'deliver': play('thud', { gain: 0.6 }); play('coin', { gain: 0.45, at: 0.12 }); marimba(deg(4, 79), 0.12, 0.06); break;
+        case 'sink': play('thud', { gain: 0.3, rate: 1.4 }); break;
+        case 'ants': play('rustle', { gain: 0.4, rate: 0.9 }); break;
+        case 'antsWin': play('rustle', { gain: 0.6, rate: 0.7 }); break;
+        case 'boost': play('special', { gain: 0.5 }); if (b.kind === 'merienda') play('coin', { gain: 0.4, at: 0.1 }); if (b.kind === 'pamaypay') play('cloth', { gain: 0.45 }); break;
         case 'shuffle': play('shuffle', { gain: 0.6 }); break;
         case 'goal': play('coin', { gain: 0.3, rate: 1.1 }); break;
         case 'star': marimba(deg(4 + b.n * 2, 79), 0, 0.08, 0.7); play('glass', { gain: 0.4, rate: 1 + b.n * 0.15, vary: 0 }); play('coin', { gain: 0.35, rate: 1 + b.n * 0.1, at: 0.05 }); break;
