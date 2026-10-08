@@ -89,6 +89,13 @@ h2 { margin: 0; font: italic 900 clamp(30px, 7vw, 48px)/1 "Barlow Condensed", sa
 .lvl { width: 64px; height: 64px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font: italic 900 24px/1 "Barlow Condensed", sans-serif; }
 .lvl small { font-size: 12px; color: var(--gold); letter-spacing: 1px; }
 .lvl:disabled { opacity: .4; cursor: default; }
+.road { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; padding: 10px; max-width: 980px; background: repeating-linear-gradient(90deg, transparent 0 22px, rgba(255,240,200,.35) 22px 40px) center / 100% 4px no-repeat; }
+.town { width: 220px; min-height: 150px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: left; border-width: 3px; background: linear-gradient(160deg, var(--a), var(--b)); color: #2a1608; box-shadow: 0 6px 0 rgba(0,0,0,.35); }
+.town b { font: italic 900 26px/1 "Barlow Condensed", sans-serif; }
+.town i { font-style: normal; font-weight: 700; opacity: .8; }
+.town em { margin-top: auto; font-style: normal; font-weight: 800; }
+.town:disabled { filter: grayscale(.7) brightness(.7); cursor: default; }
+.town.golden { --a: #ffe2a0; --b: #f0a860; } .town.noon { --a: #e8f4ff; --b: #9cc8f0; } .town.dusk { --a: #f0c0d8; --b: #9a7ab8; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .big-stars { font-size: 56px; letter-spacing: 6px; min-height: 64px; }
 .big-stars .star { display: inline-block; color: rgba(255,255,255,.18); transform: scale(.8); transition: color .2s; }
@@ -130,11 +137,18 @@ h2 { margin: 0; font: italic 900 clamp(30px, 7vw, 48px)/1 "Barlow Condensed", sa
     <p class="tag" id="title-stars"></p>
   </section>
 
-  <section class="screen" id="levels" hidden>
-    <h2>San Roque</h2>
-    <p class="tag">Sari-sari street, golden hour · <span id="town-stars"></span></p>
-    <div class="grid" id="grid"></div>
+  <section class="screen" id="map" hidden>
+    <h2>Ang Biyahe ni Lola</h2>
+    <p class="tag">Dalhin ang bilao ni Lola Pacing sa bawat bayan · <span id="map-stars"></span></p>
+    <div class="road" id="towns"></div>
     <div class="row"><button type="button" class="menu">Menu</button></div>
+  </section>
+
+  <section class="screen" id="levels" hidden>
+    <h2 id="town-name"></h2>
+    <p class="tag"><span id="town-place"></span> · <span id="town-stars"></span></p>
+    <div class="grid" id="grid"></div>
+    <div class="row"><button type="button" class="to-map">◀ Mapa</button><button type="button" class="menu">Menu</button></div>
   </section>
 
   <section class="screen" id="intro" hidden>

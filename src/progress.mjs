@@ -1,6 +1,6 @@
 // Saves: stars and best scores per level, sound and motion settings, hints already shown. Everything in
 // one localStorage entry; every access is guarded, and anything odd in it is dropped, not trusted.
-import { LEVELS } from './levels.mjs';
+import { LEVELS, TOWNS } from './levels.mjs';
 
 export const KEY = 'kakanin.v1';
 const IDS = new Set(LEVELS.map((l) => l.id));
@@ -24,5 +24,20 @@ export function save(storage, data) { try { storage.setItem(KEY, JSON.stringify(
 export function record(data, id, stars, score) {
   return { ...data, stars: { ...data.stars, [id]: Math.max(data.stars[id] || 0, stars) }, best: { ...data.best, [id]: Math.max(data.best[id] || 0, score) } };
 }
-export const isUnlocked = (data, index) => index === 0 || (data.stars[LEVELS[index - 1]?.id] || 0) > 0;
 export const totalStars = (data) => Object.values(data.stars).reduce((a, b) => a + b, 0);
+// Town t (0-based) opens once the town before it has its finale cleared and 12 stars per town are in hand.
+export const starsToOpen = (data, t) => Math.max(0, 12 * t - totalStars(data));
+export const townOpen = (data, t) => t === 0 || ((data.stars[TOWNS[t - 1]?.levels.at(-1)] || 0) > 0 && !starsToOpen(data, t));
+// a level opens with its town (the first) or after the one before it in the same town
+export function isUnlocked(data, index) {
+  const lv = LEVELS[index]; if (!lv) return false;
+  const t = TOWNS.findIndex((x) => x.id === lv.town), k = TOWNS[t].levels.indexOf(lv.id);
+  return k === 0 ? townOpen(data, t) : (data.stars[TOWNS[t].levels[k - 1]] || 0) > 0;
+}
+// A booster for every 10 stars, the kinds in turn, at most 3 of each; granted counts thresholds paid.
+export function grant(data) {
+  const due = Math.floor(totalStars(data) / 10), boosters = { ...data.boosters }, given = [];
+  let n = data.granted;
+  for (; n < due; n++) { const k = BOOSTERS[n % BOOSTERS.length]; if ((boosters[k] || 0) < 3) { boosters[k] = (boosters[k] || 0) + 1; given.push(k); } }
+  return { data: { ...data, boosters, granted: n }, given };
+}

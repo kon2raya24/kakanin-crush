@@ -195,6 +195,20 @@ await page.cdp('Emulation.setDeviceMetricsOverride', { width: 1280, height: 760,
 await page.load(`${BASE}?test=1&level=sr-01&flat=1&bot&instant&seed=5`);
 check(await until('__kc.mode === "result"', 60000), 'the flat fallback plays a level through');
 await shot('flat');
+// 8b. the town map: San Roque open, the market shut until its gate is met, then its grid
+await page.load(`${BASE}?test=1`);
+await until('window.__kc && __kc.mode === "title"'); await E(`document.getElementById('play').click(), 1`);
+check(await E('__kc.mode') === 'map' && await E(`document.querySelectorAll('#towns .town').length`) === 3, 'Play opens the map of towns');
+check(await E(`!document.querySelectorAll('#towns .town')[0].disabled && document.querySelectorAll('#towns .town')[1].disabled`), 'only San Roque is open at first');
+check(/tapusin ang San Roque 15 at 12 pang ★/.test(await E(`document.querySelectorAll('#towns .town')[1].textContent`)), `a shut town says what it needs (${await E(`document.querySelectorAll('#towns .town')[1].textContent`)})`);
+await E(`__kc.LEVELS.filter((l) => l.town === 'san-roque').forEach((l) => __kc.win(l.id, 1)), __kc.mapScreen(), 1`);
+check(await E(`!document.querySelectorAll('#towns .town')[1].disabled`), 'clearing San Roque (15 stars) opens the market');
+check(await E(`Object.values(__kc.data.boosters).reduce((a, b) => a + b, 0)`) === 1, 'the first 10 stars earn a booster');
+await shot('map');
+await E(`document.querySelectorAll('#towns .town')[1].click(), 1`);
+check(await E('__kc.mode') === 'levels' && await E(`document.getElementById('town-name').textContent`) === 'Palengke ng Malinta' && await E(`document.querySelectorAll('#grid .lvl').length`) === 15 && await E(`!document.querySelectorAll('#grid .lvl')[0].disabled && document.querySelectorAll('#grid .lvl')[1].disabled`), 'the market opens its 15-level grid, the first level open');
+await E(`document.querySelectorAll('#grid .lvl')[0].click(), 1`); await E(`document.getElementById('go').click(), 1`);
+check(await until('__kc.mode === "play" && __kc.game.id === "pk-01"', 20000), 'a market level starts from its grid');
 // 9. phase 3: blockers drawn and kept in sync, ingredients delivered, boosters used
 const layers = () => E(`(() => { const d = __kc.view.dump(), g = __kc.game; for (let i = 0; i < g.cell.length; i++) { if (!g.mask[i]) continue; if ((d.wraps[i] || 0) !== g.wrap[i]) return 'wrap ' + i; if (g.cell[i] === 9 && d.specs[i] !== g.crate[i]) return 'crate ' + i; } return 'ok'; })()`);
 await page.load(`${BASE}?test=1&level=pk-04&seed=4`);
