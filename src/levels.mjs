@@ -64,9 +64,28 @@ export function validateLevel(lv) {
     if (q.type === 'collect' && (!lv.kinds?.includes(q.kind) || !(q.n > 0))) bad.push(`collect ${q.kind}`);
     if (q.type === 'score' && !(q.n > 0)) bad.push('score n');
     if (q.type === 'latik' && !(lv.latik && lv.latik.join('').match(/[1-9]/))) bad.push('latik goal without latik');
-    if (!['collect', 'score', 'latik'].includes(q.type)) bad.push(`goal type ${q.type}`);
+    if (!['collect', 'score', 'latik', 'dahon', 'kahon', 'langgam', 'deliver'].includes(q.type)) bad.push(`goal type ${q.type}`);
   }
   if (lv.latik && lv.mask && lv.latik.some((r, y) => [...r].some((c, x) => c !== '.' && lv.mask[y]?.[x] !== '#'))) bad.push('latik on a hole');
+  // the campaign's blockers and ingredients
+  for (const f of ['wrap', 'crates', 'ants']) if (lv[f]) rows(lv[f], f);
+  const has = (f, re) => !!(lv[f] && lv[f].join('').match(re));
+  if (lv.wrap && lv.wrap.join('').match(/[^.w]/)) bad.push("wrap: '.' or 'w'");
+  if (lv.crates && lv.crates.join('').match(/[^.123]/)) bad.push('crates: 1-3 hp');
+  if (lv.ants && lv.ants.join('').match(/[^.a]/)) bad.push("ants: '.' or 'a'");
+  const cellOf = (f, y, x) => (lv[f] && lv[f][y] ? lv[f][y][x] : '.');
+  for (let y = 0; y < lv.h; y++) for (let x = 0; x < lv.w; x++) {
+    const on = ['wrap', 'crates', 'ants'].filter((f) => cellOf(f, y, x) !== '.');
+    if (on.length > 1) bad.push(`${on.join(' and ')} on one cell (${x},${y})`);
+    if (on.length && lv.mask && lv.mask[y]?.[x] !== '#') bad.push(`${on[0]} on a hole (${x},${y})`);
+  }
+  for (const q of lv.goals || []) {
+    if (q.type === 'dahon' && !has('wrap', /w/)) bad.push('a dahon goal without wraps');
+    if (q.type === 'kahon' && !has('crates', /[1-3]/)) bad.push('a kahon goal without crates');
+    if (q.type === 'langgam' && !has('ants', /a/)) bad.push('a langgam goal without ants');
+    if (q.type === 'deliver' && !(lv.ingredients && lv.ingredients[q.kind] >= q.n && q.n > 0)) bad.push(`deliver ${q.kind}: not enough ingredients`);
+  }
+  if (lv.ingredients && !(lv.ingredients.onBoard >= 1 && lv.ingredients.onBoard <= 3)) bad.push('ingredients: onBoard 1-3');
   const cells = lv.mask ? lv.mask.join('').split('').filter((c) => c === '#').length : lv.w * lv.h;
   if (cells < 25) bad.push('too few cells');
   return bad;

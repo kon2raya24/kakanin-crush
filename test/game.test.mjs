@@ -270,3 +270,119 @@ test('a new special never replaces one already on the board', () => {
   const gr = findGroups(g)[0];
   assert.equal(_t.placeFor(g, gr, SANDOK_H, []), -1);
 });
+
+// ---------- phase 3: blockers, deliveries, boosters ----------
+import { KAHON, LANGGAM, GATA, ASUKAL, useBooster } from '../src/game.mjs';
+const BCH = { K: KAHON, A: LANGGAM, g: GATA, z: ASUKAL };
+function setBlockers(g, rows) {
+  rows.forEach((r, y) => [...r].forEach((c, x) => { const i = y * g.W + x; if (c in BCH) { g.cell[i] = BCH[c]; g.spec[i] = NONE; if (c === 'K' && !g.crate[i]) g.crate[i] = 1; } }));
+  return g;
+}
+
+test('barriers split a column: pieces stack on a crate, and the cells under it refill from just below it', () => {
+  const g = setBoard(createGame(L({ w: 3, h: 4 })), ['kbu', 'mbs', 'pus', 'bus']);
+  setBlockers(g, ['...', 'K..', '...', '...']);
+  g.cell[9] = EMPTY;
+  assert.deepEqual(_t.gravity(g).map(([a, b]) => `${a}>${b}`), ['6>9']);
+  assert.equal(g.cell[0], 1, 'the kutsinta above the crate stays put');
+  const sp = _t.refill(g);
+  assert.deepEqual(sp.map(([i, , n, top]) => [i, n, top]), [[6, 1, 2]]);
+});
+
+test('dahon: a wrapped piece cannot move or fall, and a match on it or beside it unwraps it', () => {
+  const g = setBoard(createGame(L()), ['kppbu', 'pkbum', 'bumkb', 'umkbs', 'mkbsu']);
+  g.wrap[3] = 1; // the bibingka at (3,0)
+  assert.equal(swap(g, 3, 4).ok, false, 'a wrapped piece cannot be swapped');
+  const r = swap(g, 0, 5); // puto at 0,1,2: cell 2 is beside the wrap
+  const s = r.events.find((e) => e.type === 'step');
+  assert.deepEqual(s.hits, [[3, 'wrap', 0]]);
+  assert.equal(g.wrap[3], 0);
+  const h = setBoard(createGame(L()), ['kppbu', 'pkbum', 'bumkb', 'umkbs', 'mkbsu']);
+  h.wrap[1] = 1; // the middle puto of the coming match is wrapped
+  const s2 = swap(h, 0, 5).events.find((e) => e.type === 'step');
+  assert.ok(!s2.cleared.some(([i]) => i === 1), 'the wrapped puto is freed, not cleared');
+  assert.ok(s2.hits.some(([i, w]) => i === 1 && w === 'wrap'));
+  const f = setBoard(createGame(L({ w: 1, h: 3 })), ['p', 'k', 's']);
+  f.wrap[1] = 1; f.cell[2] = EMPTY;
+  _t.gravity(f);
+  assert.equal(f.cell[1], 1, 'it does not fall'); assert.equal(f.cell[2], EMPTY);
+});
+
+test('kahon: each nearby clear takes one hp; at zero the crate is gone and counts for the goal', () => {
+  const g = setBoard(createGame(L({ goals: [{ type: 'kahon' }], crates: ['.....', '..2..', '.....', '.....', '.....'] })), ['kppbu', 'pkbum', 'bumkb', 'umkbs', 'mkbsu']);
+  setBlockers(g, ['.....', '..K..', '.....', '.....', '.....']); g.crate[7] = 2;
+  assert.equal(g.goals[0].need, 1);
+  const s = swap(g, 0, 5).events.find((e) => e.type === 'step');
+  assert.deepEqual(s.hits.filter(([i]) => i === 7), [[7, 'crate', 1]]);
+  assert.equal(g.cell[7], KAHON);
+  assert.equal(swap(g, 7, 8).ok, false, 'a crate cannot be swapped');
+  g.crate[7] = 1;
+  const t2 = setBoard(createGame(L({ goals: [{ type: 'kahon' }], crates: ['.....', '..1..', '.....', '.....', '.....'] })), ['kppbu', 'pkbum', 'bumkb', 'umkbs', 'mkbsu']);
+  setBlockers(t2, ['.....', '..K..', '.....', '.....', '.....']);
+  swap(t2, 0, 5);
+  assert.notEqual(t2.cell[7], KAHON); assert.equal(t2.goals[0].got, 1);
+});
+
+test('langgam: a nearby clear removes ants; a quiet turn lets them spread; ants everywhere lose the level', () => {
+  const g = setBoard(createGame(L({ goals: [{ type: 'langgam' }], ants: ['.....', '..a..', '.....', '.....', '.....'] })), ['kppbu', 'pkbum', 'bumkb', 'umkbs', 'mkbsu']);
+  setBlockers(g, ['.....', '..A..', '.....', '.....', '.....']);
+  const s = swap(g, 0, 5).events.find((e) => e.type === 'step');
+  assert.ok(s.hits.some(([i, w]) => i === 7 && w === 'ant'));
+  assert.equal(g.goals[0].got, 1);
+  const q = setBoard(createGame(L({ goals: [{ type: 'langgam' }], ants: ['....a', '.....', '.....', '.....', '.....'], moves: 5 })), ['kppbu', 'pkbum', 'bumkb', 'umkbs', 'mkbsu']);
+  setBlockers(q, ['....A', '.....', '.....', '.....', '.....']);
+  const before = [...q.cell].filter((c) => c === LANGGAM).length;
+  const r = swap(q, 0, 5); // the match is far from the ant
+  assert.ok(r.events.some((e) => e.type === 'ants'));
+  assert.equal([...q.cell].filter((c) => c === LANGGAM).length, before + 1);
+  const w = setBoard(createGame(L({ w: 2, h: 1, goals: [{ type: 'langgam' }], ants: ['a.'] })), ['pk']);
+  setBlockers(w, ['A.']);
+  const ev = []; _t.spreadAnts(w, ev);
+  assert.equal(w.phase, 'lost'); assert.ok(ev.some((e) => e.type === 'antsWin'));
+});
+
+test('ingredients never match, survive blasts, and are delivered at the bottom for the goal', () => {
+  const g = setBoard(createGame(L({ goals: [{ type: 'deliver', kind: 'gata', n: 1 }] })), ['kbumk', 'bumkb', 'umkbs', 'mkbsu', 'kumbs']);
+  setBlockers(g, ['ggg..', '.....', '.....', '.....', '.....']);
+  assert.equal(findGroups(g).length, 0, 'three gata in a row are not a match');
+  const h = setBoard(createGame(L({ goals: [{ type: 'deliver', kind: 'gata', n: 1 }] })), ['kbumk', 'bumkb', 'pkpbu', 'kpukb', 'mkbsu']);
+  setBlockers(h, ['.....', '.....', '...g.', '.....', '.....']);
+  h.spec[12] = SANDOK_H; // the puto at (2,2) is a row Sandok: the match sets it off across row 2, gata and all
+  const rb = swap(h, 11, 16); // the puto at (1,3) moves up: puto at 10, 11, 12
+  assert.ok(rb.events.find((e) => e.type === 'step').fired.length === 1);
+  assert.equal(h.cell[13], GATA, 'the gata survives the blast');
+  const d = setBoard(createGame(L({ w: 3, h: 4, goals: [{ type: 'deliver', kind: 'gata', n: 1 }] })), ['kbu', 'bpm', 'mps', 'ukp']);
+  setBlockers(d, ['.g.', '...', '...', '...']);
+  // swap (1,3)=k with (2,3)=p: column 1 below the gata reads p p p, so the gata falls to the bottom row and is delivered
+  const r = swap(d, 10, 11);
+  assert.ok(r.events.some((e) => e.type === 'step' && e.delivered && e.delivered.some(([, k]) => k === GATA)));
+  assert.equal(d.goals[0].got, 1);
+});
+
+test('ingredients spawn at a column top while more are owed', () => {
+  const g = createGame(L({ w: 5, h: 5, ingredients: { gata: 2, onBoard: 1 }, goals: [{ type: 'deliver', kind: 'gata', n: 2 }] }));
+  assert.equal([...g.cell].filter((c) => c === GATA).length, 1, 'one on the board to start');
+  assert.ok([...g.cell].slice(0, 5).includes(GATA), 'in the top row');
+});
+
+test('boosters: Merienda, a Sandok in hand, the Siyanse and the Pamaypay; bad targets are refused', () => {
+  let g = createGame(L({ w: 7, h: 7, seed: 9 }));
+  const m0 = g.moves;
+  assert.equal(useBooster(g, 'merienda').ok, true); assert.equal(g.moves, m0 + 5);
+  assert.equal(useBooster(g, 'sandok', 24).ok, true); assert.ok([SANDOK_H, SANDOK_V].includes(g.spec[24]));
+  const before = hashState(g), r = useBooster(g, 'siyanse', 10);
+  assert.equal(r.ok, true); assert.ok(r.events.some((e) => e.type === 'step' && e.cleared.some(([i]) => i === 10)));
+  assert.notEqual(hashState(g), before);
+  assert.equal(g.moves, m0 + 5, 'boosters cost no move');
+  assert.ok(useBooster(g, 'pamaypay').events.some((e) => e.type === 'shuffle'));
+  for (const [k, t] of [['sandok', -1], ['sandok', 999], ['siyanse', NaN], ['nope', 1]]) assert.equal(useBooster(g, k, t).ok, false);
+  g = setBoard(createGame(L()), ['kppbu', 'pkbum', 'bumkb', 'umkbs', 'mkbsu']); setBlockers(g, ['.....', '..K..', '.....', '.....', '.....']); g.crate[7] = 2;
+  useBooster(g, 'siyanse', 7); assert.equal(g.crate[7], 1, 'the Siyanse takes a crate hp');
+  g.phase = 'won'; assert.equal(useBooster(g, 'merienda').ok, false);
+});
+
+test('replays with every blocker stay exact', () => {
+  const lv = L({ w: 8, h: 8, kinds: KAKANIN.slice(0, 5), moves: 30, seed: 4, wrap: ['........', '..w..w..', '........', '........', '........', '........', '........', '........'], crates: ['........', '........', '........', '...23...', '........', '........', '........', '........'], ants: ['a.......', '........', '........', '........', '........', '........', '........', '.......a'], ingredients: { gata: 3, onBoard: 1 }, goals: [{ type: 'deliver', kind: 'gata', n: 3 }, { type: 'kahon' }] });
+  const play = () => { const g = createGame(lv); for (let k = 0; k < 25 && g.phase === 'play'; k++) { const mv = findMoves(g); if (!mv.length) break; swap(g, ...mv[k % mv.length]); } return hashState(g); };
+  assert.equal(play(), play());
+});
