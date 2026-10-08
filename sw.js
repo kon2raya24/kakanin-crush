@@ -1,6 +1,6 @@
 // Offline play: the game's files are cached on install and served cache-first; the webfont is cached
 // the first time it loads. Bump VERSION whenever a file changes so players get the update.
-const VERSION = 'kakanin-v1';
+const VERSION = 'kakanin-v2';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',

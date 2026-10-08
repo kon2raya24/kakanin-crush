@@ -13,9 +13,13 @@
 - **Latik** sticks under some kakanin: match on top to clean it.
 - Finish the order with moves to spare and Lola calls an **Ubos-Benta**: every move left becomes a Sandok.
 
+## Lola Pacing
+
+Lola stands behind her stall and reacts to your play: she waves when a bilao starts, claps for a special, cheers a long cascade, celebrates a win and slumps at a loss. She's a motion-captured Mixamo figure (shared with Lipat-Bahay), shipped only with the Vercel build; elsewhere a made-in-code Lola stands in.
+
 ## San Roque
 
-The first town has 15 levels on a sari-sari street at golden hour. More towns, Lola's orders, the daily bilao, endless and Karera modes come in the next phases (see `docs/superpowers/specs/`).
+The first town has 15 levels on a sari-sari street at golden hour, on a rising difficulty curve tuned against a human-like bot (and checked winnable by a strong one). More towns, Lola's orders, the daily bilao, endless and Karera modes come in the next phases (see `docs/superpowers/specs/`).
 
 ## Run locally
 
@@ -25,7 +29,7 @@ python3 -m http.server 8000
 
 Tests (Node 20+): `node --test test/*.test.mjs`. They cover the rules, the levels (and their balance by a bot), saves and the offline cache. `node tools/check.mjs` runs the browser checks.
 
-Made by [Lemmuel Turaya](https://kon2raya.netlify.app). The 3D street uses CC0 scans from Poly Haven; everything else is drawn and synthesized in code.
+Made by [Lemmuel Turaya](https://kon2raya.netlify.app). The 3D street uses CC0 scans from Poly Haven; the sound effects are CC0 recordings by Kenney (kenney.nl), layered with music and tones synthesized in code; Lola is a Mixamo character.
 
 ## License
 
