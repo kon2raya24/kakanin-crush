@@ -127,10 +127,10 @@ A Candy Crush-style match-3 game reimagined with Filipino kakanin, at the same l
   - recovery from corrupt saves
   - the PWA offline file list
 - **The bot** (`src/bot.mjs`): it scores every legal swap (goal progress, specials, blockers, cascades) with one move of lookahead.
-  - **Balance:** each level gets many seeded runs. Targets:
-    - early levels: the bot wins 95% or more
-    - late levels: 40–70%
-    - a 3-star must be possible on every level
+  - **Balance** (amended 2026-10-08 after the user's play-test: "the gameplay there is no challenge at all"): each level gets many seeded runs, measured against a casual, human-like bot that sees only the match its swap makes; the strong bot (it sees refills) guarantees fairness. Targets:
+    - casual-bot win rate by level: 1 at 80–95%, 2–3 at 65–85%, 4–6 at 50–70%, 7–10 at 40–60%, 11–14 at 30–50%, 15 at 25–45%; later towns continue the curve
+    - the strong bot wins ≥80% on every level (skill always wins)
+    - a 3-star must be possible on every level, checked on seeds the thresholds weren't tuned on
     - no level may depend on luck alone
   - The bot also drives the title demo and the headless checks.
 - **Browser checks** (headless Chrome): desktop and phone portrait screenshots of every screen; drag, tap-tap and keyboard input; no page errors; stable GPU memory across restarts; the quality step-down; `?flat=1`. Every screenshot gets looked at before claiming done.
