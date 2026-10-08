@@ -54,6 +54,32 @@ const [g2, h2] = JSON.parse(await E('JSON.stringify(__kc.moves()[0])'));
 await E(`__kc.swap(${g2}, ${h2})`); await sleep(120); await page.viewport(900, 700); await sleep(200); await page.viewport(1280, 760);
 await until('!__kc.busy()', 90000);
 check(await matches(), 'a resize during a cascade leaves the board right');
+// 5b. leaving mid-animation: a move that ends the level, then pause and restart before it finishes
+await page.load(`${BASE}?test=1&level=sr-01&seed=4`);
+await until('window.__kc && __kc.mode === "play"');
+await E('__kc.game.moves = 1, 1');
+const [lv1, lv2] = JSON.parse(await E('JSON.stringify(__kc.moves()[0])'));
+await E(`__kc.swap(${lv1}, ${lv2}), 1`); await sleep(150); // don't await the swap: it resolves when the animation ends
+check(await E('__kc.busy()'), 'the last move is still animating');
+await E('document.getElementById("pause-btn").click(), document.getElementById("restart").click(), 1');
+await until('!__kc.busy()', 90000); await sleep(1500);
+check(await E('__kc.mode') === 'play' && await E('__kc.game.phase') === 'play' && await E('__kc.game.moves') === 18, `an old animation can't end the new game (mode ${await E('__kc.mode')})`);
+// 5c. keys after moving from a 9x9 level to a 7x7 one
+await page.load(`${BASE}?test=1&level=sr-07&seed=4&instant`);
+await until('window.__kc && __kc.mode === "play"');
+for (let k = 0; k < 8; k++) { await page.key('ArrowDown', { keyCode: 40 }); await page.key('ArrowRight', { keyCode: 39 }); }
+await E('__kc.start(0), 1'); await sleep(300);
+await page.key('ArrowLeft', { keyCode: 37 });
+check(await E('__kc.cursor >= 0 && __kc.cursor < __kc.game.cell.length'), `arrow keys work on a smaller board (cursor ${await E('__kc.cursor')})`);
+// 5d. leaving for the menu mid-animation: the title demo keeps playing
+await page.load(`${BASE}?test=1&level=sr-01&seed=4`);
+await until('window.__kc && __kc.mode === "play"');
+const [m1, m2] = JSON.parse(await E('JSON.stringify(__kc.moves()[0])'));
+await E(`__kc.swap(${m1}, ${m2}), 1`); await sleep(150);
+await E('document.getElementById("pause-btn").click(), document.querySelector("#pause .to-levels").click(), document.querySelector("#levels .menu").click(), 1');
+const turn0 = await E('__kc.game ? __kc.game.turn : -1');
+await sleep(20000);
+check(await E('__kc.mode') === 'title' && (await E('__kc.game ? __kc.game.turn : -1')) !== turn0, 'the title demo plays after leaving mid-animation');
 // 6. the bot finishes a level and the result screen shows
 await page.load(`${BASE}?test=1&level=sr-01&bot&instant&seed=2`);
 check(await until('__kc.mode === "result"', 90000), 'the bot finishes level 1');

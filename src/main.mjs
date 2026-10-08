@@ -79,9 +79,9 @@ function hud(prev) {
 }
 
 // ---------- flow ----------
-function titleScreen() { mode = 'title'; game = null; $('title-stars').textContent = totalStars(data) ? `★ ${totalStars(data)} / ${LEVELS.length * 3}` : ''; show('title'); demo(); }
+function titleScreen() { mode = 'title'; game = null; busy = false; $('title-stars').textContent = totalStars(data) ? `★ ${totalStars(data)} / ${LEVELS.length * 3}` : ''; show('title'); demo(); }
 function levelsScreen() {
-  mode = 'levels'; game = null;
+  mode = 'levels'; game = null; busy = false;
   const grid = $('grid'); grid.replaceChildren();
   LEVELS.forEach((lv, k) => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'lvl'; b.disabled = !isUnlocked(data, k);
@@ -101,7 +101,7 @@ function intro(k) {
 function start(k = levelIx) {
   levelIx = k; A.start(); A.music(true);
   const lv = LEVELS[k], seed = Q.get('seed') ? Number(Q.get('seed')) : (lv.seed * 7919 + Math.floor(Math.random() * 1e6)) >>> 0;
-  game = createGame(lv, seed); sel = -1; idle = 0; busy = false;
+  game = createGame(lv, seed); sel = -1; cursor = -1; idle = 0; busy = false;
   view.setGame(game); view.select(-1); view.showHint(null);
   mode = 'play'; show(null); hud();
   if (lv.tip) say(lv.tip);
@@ -110,11 +110,12 @@ function start(k = levelIx) {
 async function doSwap(a, b) {
   if (mode !== 'play' || busy || view.busy() || !adjacent(game, a, b)) return;
   busy = true; sel = -1; view.select(-1); view.showHint(null); idle = 0;
-  const prev = game.goals.map((q) => q.got);
+  const g0 = game, prev = game.goals.map((q) => q.got);
   const r = swap(game, a, b);
   for (const e of r.events) A.event(e);
   if (!r.ok) A.event({ type: 'tsk' });
   await view.play(r.events, game);
+  if (game !== g0) return; // the player left this game (restart, levels, menu) while it animated
   hud(prev);
   busy = false;
   const end = r.events.find((e) => e.type === 'end');
@@ -126,7 +127,9 @@ function finish(end) {
   const lv = LEVELS[levelIx];
   if (end.won) { data = record(data, lv.id, end.stars, end.score); persist(); }
   A.music(false);
+  const g0 = game;
   setTimeout(() => {
+    if (game !== g0) return;
     mode = 'result';
     $('result-title').textContent = end.won ? 'Ubos ang paninda!' : 'May natira pa…';
     $('result-stars').textContent = end.won ? '★'.repeat(end.stars) + '☆'.repeat(3 - end.stars) : '';
@@ -205,7 +208,7 @@ async function demoMove() {
   if (!game || busy || view.busy()) return;
   if (game.phase !== 'play') { demo(); return; }
   const mv = chooseMove(game); if (!mv) { demo(); return; }
-  busy = true; const r = swap(game, ...mv); await view.play(r.events, game); busy = false;
+  busy = true; const g0 = game, r = swap(game, ...mv); await view.play(r.events, game); if (game === g0) busy = false;
 }
 
 // ---------- loop ----------
@@ -225,4 +228,4 @@ if ('serviceWorker' in navigator && !TEST) navigator.serviceWorker.register('sw.
 const startAt = Q.get('level') ? LEVELS.findIndex((l) => l.id === Q.get('level')) : -1;
 if (startAt >= 0) start(startAt); else titleScreen();
 requestAnimationFrame(frame);
-if (TEST) window.__kc = { get game() { return game; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), LEVELS, busy: () => busy || view.busy() };
+if (TEST) window.__kc = { get game() { return game; }, get mode() { return mode; }, get view() { return view; }, start, swap: doSwap, moves: () => findMoves(game), get cursor() { return cursor; }, LEVELS, busy: () => busy || view.busy() };
