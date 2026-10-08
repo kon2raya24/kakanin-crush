@@ -2,7 +2,7 @@
 // game.mjs and only change through swap(); the view animates their events and ignores input until the
 // board is still again.
 import { createGame, swap, hint, adjacent, findMoves, KAKANIN } from './game.mjs';
-import { LEVELS, TOWN } from './levels.mjs';
+import { LEVELS, townOf } from './levels.mjs';
 import { chooseMove } from './bot.mjs';
 import { load, save, record, isUnlocked, totalStars, fresh } from './progress.mjs';
 import { createAudio } from './audio.mjs';
@@ -69,7 +69,8 @@ function hud(prev) {
   const lv = LEVELS[levelIx];
   $('h-score').querySelector('b').textContent = game.score.toLocaleString('en-PH');
   $('h-best').querySelector('b').textContent = Math.max(data.best[lv.id] || 0, game.score).toLocaleString('en-PH');
-  $('h-level').querySelector('b').textContent = `${TOWN.name.toUpperCase()} ${levelIx + 1}`;
+  const town = townOf(lv.id);
+  $('h-level').querySelector('b').textContent = `${town.name.toUpperCase()} ${town.levels.indexOf(lv.id) + 1}`;
   $('h-level').querySelector('em').textContent = lv.name;
   $('h-moves').textContent = game.moves; $('h-moves').classList.toggle('low', game.moves <= 5);
   const top = lv.stars[2] * 1.1; $('h-meter').style.width = `${Math.min(100, (game.score / top) * 100)}%`;

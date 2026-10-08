@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LEVELS, TOWN, validateLevel } from '../src/levels.mjs';
+import { LEVELS, TOWNS, validateLevel } from '../src/levels.mjs';
 import { createGame, findGroups, findMoves } from '../src/game.mjs';
 
-test('San Roque has 15 valid levels with unique ids', () => {
-  assert.equal(TOWN.name, 'San Roque');
-  assert.equal(LEVELS.length, 15);
-  assert.equal(new Set(LEVELS.map((l) => l.id)).size, 15);
+test('every town has 15 valid levels, and every id is unique', () => {
+  assert.equal(TOWNS[0].name, 'San Roque');
+  for (const t of TOWNS) assert.equal(t.levels.length, 15, t.name);
+  assert.equal(new Set(LEVELS.map((l) => l.id)).size, LEVELS.length);
   for (const lv of LEVELS) assert.deepEqual(validateLevel(lv), [], lv.id);
 });
 

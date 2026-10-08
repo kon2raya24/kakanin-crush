@@ -4,7 +4,7 @@ const VERSION = 'kakanin-v2';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
-  'src/main.mjs', 'src/game.mjs', 'src/rng.mjs', 'src/levels.mjs', 'src/bot.mjs', 'src/progress.mjs', 'src/audio.mjs',
+  'src/main.mjs', 'src/game.mjs', 'src/rng.mjs', 'src/levels.mjs', 'src/towns/masks.mjs', 'src/towns/san-roque.mjs', 'src/bot.mjs', 'src/progress.mjs', 'src/audio.mjs',
   'src/view3d.mjs', 'src/kakanin3d.mjs', 'src/stall3d.mjs', 'src/render2d.mjs', 'src/lola3d.mjs', 'src/people.mjs', 'src/tex.mjs', 'src/post.mjs',
   'src/vendor/three.module.min.js', 'src/vendor/three-extra.min.js', 'src/vendor/three-fx.min.js', 'src/vendor/three-mocap.min.js',
   'assets/env/sky/kloppenheim_06_puresky.hdr', 'assets/env/sky/bd_golden.jpg',
