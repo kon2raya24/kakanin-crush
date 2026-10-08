@@ -78,8 +78,7 @@ const [m1, m2] = JSON.parse(await E('JSON.stringify(__kc.moves()[0])'));
 await E(`__kc.swap(${m1}, ${m2}), 1`); await sleep(150);
 await E('document.getElementById("pause-btn").click(), document.querySelector("#pause .to-levels").click(), document.querySelector("#levels .menu").click(), 1');
 const turn0 = await E('__kc.game ? __kc.game.turn : -1');
-await sleep(20000);
-check(await E('__kc.mode') === 'title' && (await E('__kc.game ? __kc.game.turn : -1')) !== turn0, 'the title demo plays after leaving mid-animation');
+check(await until(`__kc.mode === 'title' && __kc.game && __kc.game.turn !== ${turn0}`, 90000), 'the title demo plays after leaving mid-animation');
 // 6. the bot finishes a level and the result screen shows
 await page.load(`${BASE}?test=1&level=sr-01&bot&instant&seed=2`);
 check(await until('__kc.mode === "result"', 90000), 'the bot finishes level 1');
