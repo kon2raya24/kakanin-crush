@@ -2,8 +2,10 @@
 // Each town lives in src/towns/<id>.mjs as { TOWN, LEVELS, BANDS? }.
 import { KAKANIN } from './game.mjs';
 import * as sanRoque from './towns/san-roque.mjs';
+import * as palengke from './towns/palengke.mjs';
+import * as simbahan from './towns/simbahan.mjs';
 
-const TOWN_FILES = [sanRoque];
+const TOWN_FILES = [sanRoque, palengke, simbahan];
 export const TOWNS = TOWN_FILES.map((t) => ({ ...t.TOWN, levels: t.LEVELS.map((l) => l.id) }));
 export const LEVELS = TOWN_FILES.flatMap((t) => t.LEVELS.map((l) => ({ ...l, town: t.TOWN.id })));
 // The casual (human-like) bot's target win rate for each level. San Roque has its own; later towns follow

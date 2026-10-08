@@ -4,13 +4,15 @@
 //   if it can't win a level, nobody can.
 // - casual: sees only the match its swap makes (the first step: no cascades, no refills) and picks among
 //   its best three, like a person scanning the board. The difficulty curve is tuned against it.
-import { createGame, swap, findMoves, clone, NONE, BILAO } from './game.mjs';
+import { createGame, swap, findMoves, clone, NONE, BILAO, GATA, ASUKAL } from './game.mjs';
 import { next } from './rng.mjs';
 
 function value(g) {
   if (g.phase === 'won') return 1e9 + g.score;
   let v = 0;
   for (const q of g.goals) v += (Math.min(q.got, q.need) / q.need) * 10000;
+  // ingredients count for how far down they've come
+  if (g.goals.some((q) => q.type === 'deliver')) for (let i = 0; i < g.cell.length; i++) if (g.cell[i] === GATA || g.cell[i] === ASUKAL) v += (((i / g.W) | 0) / g.H) * 4000;
   v += g.score / 20;
   for (let i = 0; i < g.spec.length; i++) if (g.spec[i] !== NONE) v += g.cell[i] === BILAO ? 900 : 400;
   return v;
@@ -21,7 +23,9 @@ function casualMove(g, r) {
   for (const [a, b] of findMoves(g)) {
     const s = swap(clone(g), a, b).events.find((e) => e.type === 'step');
     if (!s) continue;
-    let v = s.cleared.length + s.made.length * 3 + s.latik.length * 2;
+    let v = s.cleared.length + s.made.length * 3 + s.latik.length * 2 + (s.hits || []).length * 2 + (s.delivered || []).length * 10;
+    // an ingredient brought down a row is progress you can see
+    for (const [from, to] of s.falls) if (g.cell[from] === GATA || g.cell[from] === ASUKAL) v += 3 * Math.max(0, ((to - from) / g.W) | 0);
     for (const q of g.goals) if (q.type === 'collect') v += s.cleared.filter((c) => c[1] === q.kind).length * 2;
     scored.push([v, a, b]);
   }

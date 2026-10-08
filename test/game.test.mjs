@@ -350,13 +350,31 @@ test('ingredients never match, survive blasts, and are delivered at the bottom f
   h.spec[12] = SANDOK_H; // the puto at (2,2) is a row Sandok: the match sets it off across row 2, gata and all
   const rb = swap(h, 11, 16); // the puto at (1,3) moves up: puto at 10, 11, 12
   assert.ok(rb.events.find((e) => e.type === 'step').fired.length === 1);
-  assert.equal(h.cell[13], GATA, 'the gata survives the blast');
+  assert.ok(h.cell.includes(GATA), 'the gata survives the blast (and has sunk since)');
   const d = setBoard(createGame(L({ w: 3, h: 4, goals: [{ type: 'deliver', kind: 'gata', n: 1 }] })), ['kbu', 'bpm', 'mps', 'ukp']);
   setBlockers(d, ['.g.', '...', '...', '...']);
   // swap (1,3)=k with (2,3)=p: column 1 below the gata reads p p p, so the gata falls to the bottom row and is delivered
   const r = swap(d, 10, 11);
   assert.ok(r.events.some((e) => e.type === 'step' && e.delivered && e.delivered.some(([, k]) => k === GATA)));
   assert.equal(d.goals[0].got, 1);
+});
+
+test('ingredients are heavy: after a turn each sinks a row, is delivered at the bottom, and stops on a barrier', () => {
+  const G = () => setBoard(createGame(L({ goals: [{ type: 'deliver', kind: 'gata', n: 2 }] })), ['kbumk', 'bumkb', 'umkbs', 'mkbsu', 'kumbs']);
+  let g = G(); setBlockers(g, ['.....', '..g..', '.....', '.....', '.....']);
+  let ev = []; _t.sink(g, ev);
+  assert.equal(g.cell[12], GATA, 'one row down'); assert.equal(g.cell[7], KAKANIN.indexOf('kutsinta'), 'the piece under it came up');
+  assert.deepEqual(ev.find((e) => e.type === 'sink').moved, [[7, 12]]);
+  g = G(); setBlockers(g, ['.....', '.....', '.....', '..g..', '.....']);
+  ev = []; _t.sink(g, ev);
+  assert.ok(ev.some((e) => e.type === 'step' && e.delivered.some(([i, k]) => i === 22 && k === GATA)), 'sinking into the bottom row delivers');
+  assert.equal(g.goals[0].got, 1);
+  g = G(); setBlockers(g, ['.....', '..g..', '..K..', '.....', '.....']);
+  ev = []; _t.sink(g, ev);
+  assert.equal(g.cell[7], GATA, 'a crate holds it up'); assert.equal(ev.length, 0);
+  g = createGame(L({ w: 7, h: 7, seed: 4, ingredients: { gata: 2, onBoard: 1 }, goals: [{ type: 'deliver', kind: 'gata', n: 2 }] }));
+  const r = swap(g, ...findMoves(g)[0]);
+  assert.ok(r.events.some((e) => e.type === 'sink' || (e.type === 'step' && e.delivered.length)), 'a real turn sinks the gata');
 });
 
 test('ingredients spawn at a column top while more are owed', () => {

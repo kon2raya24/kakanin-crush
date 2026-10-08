@@ -327,6 +327,7 @@ export function swap(g, a, b) {
 }
 
 function after(g, ev, { turn = true } = {}) {
+  if (turn) sink(g, ev);
   if (goalsMet(g)) { ubos(g, ev); return; }
   if (turn && !g.antHit && g.cell.includes(LANGGAM)) { spreadAnts(g, ev); if (g.phase !== 'play') return; refreshGoals(g); }
   if (g.moves <= 0) { g.phase = 'lost'; ev.push({ type: 'end', won: false, stars: 0, score: g.score }); return; }
@@ -336,6 +337,24 @@ function after(g, ev, { turn = true } = {}) {
   }
 }
 
+
+// Lola's ingredients are heavy: after every turn each one sinks a row, trading places with the plain piece
+// under it (holes are skipped; a barrier holds it up). One that reaches the bottom is delivered, and any
+// match the risen piece makes plays out.
+function sink(g, ev) {
+  const { W, H } = g, moved = [];
+  for (let y = H - 2; y >= 0; y--) for (let x = 0; x < W; x++) { // bottom-up, so each moves once
+    const i = y * W + x;
+    if (!g.mask[i] || !isIngredient(g.cell[i])) continue;
+    let j = i + W; while (j < W * H && !g.mask[j]) j += W;
+    if (j >= W * H || !movable(g, j) || isIngredient(g.cell[j])) continue;
+    exchange(g, i, j); moved.push([i, j]);
+  }
+  if (!moved.length) return;
+  ev.push({ type: 'sink', moved });
+  const bottom = moved.some(([, j]) => { let k = j + W; while (k < W * H && !g.mask[k]) k += W; return k >= W * H; });
+  settle(g, ev, [], bottom ? [] : null); // an empty first step is how a delivery with no match plays out
+}
 
 // A quiet turn (no ant swept off): one ant walks onto a neighbouring plain piece. If ants are all that is
 // left to move, they've taken the bilao.
@@ -472,4 +491,4 @@ function ubos(g, ev) {
   ev.push({ type: 'end', won: true, stars: g.won, score: g.score });
 }
 
-export const _t = { wouldRun, shuffle, pickKind, gravity, refill, placeFor, spreadAnts, deliver };
+export const _t = { wouldRun, shuffle, pickKind, gravity, refill, placeFor, spreadAnts, deliver, sink };
